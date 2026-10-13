@@ -1,0 +1,1955 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#FF6A3D">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>地推标点 · 在线版</title>
+<style>
+:root{
+  --pri:#FF6A3D;--pri-d:#E8552A;--pri-s:#FFF1EC;
+  --ink:#1F2329;--ink2:#4E5969;--ink3:#86909C;--line:#E5E6EB;--bg:#F5F6F7;--card:#fff;
+  --r:12px;--sh:0 4px 16px rgba(31,35,41,.12);
+  --sat:env(safe-area-inset-top,0px);--sab:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--ink);
+  font:14px/1.5 -apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif}
+button{font:inherit;color:inherit;cursor:pointer}
+input,textarea{font:inherit;color:inherit}
+svg{display:block;flex:none}
+[hidden]{display:none!important}
+
+/* ---------- 地图与浮层 ---------- */
+#map{position:fixed;inset:0;background:#E8ECEF}
+.topbar{position:fixed;top:calc(12px + var(--sat));left:16px;right:16px;display:flex;gap:8px;z-index:20}
+.search{flex:1;min-width:0;display:flex;align-items:center;gap:8px;height:48px;padding:0 8px 0 16px;background:#fff;border-radius:var(--r);box-shadow:var(--sh);color:var(--ink3)}
+.search input{flex:1;min-width:0;border:0;outline:0;background:none;font-size:16px;color:var(--ink)}
+.search input::-webkit-search-cancel-button{display:none}
+.q-clear{width:32px;height:32px;border:0;border-radius:50%;background:none;color:var(--ink3);display:grid;place-items:center}
+.icon-btn{width:48px;height:48px;flex:none;border:0;border-radius:var(--r);background:#fff;box-shadow:var(--sh);display:grid;place-items:center;color:var(--ink2)}
+.icon-btn:active{background:var(--bg)}
+
+.results{position:fixed;top:calc(68px + var(--sat));left:16px;right:16px;max-height:55vh;overflow:auto;background:#fff;border-radius:var(--r);box-shadow:var(--sh);z-index:21}
+.res-group{padding:8px 16px 4px;font-size:12px;color:var(--ink3);background:#FAFAFB}
+.res-item{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line);cursor:pointer}
+.res-item:last-child{border-bottom:0}
+.res-item:active{background:var(--bg)}
+.res-main{flex:1;min-width:0}
+.res-main b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.res-main small{display:block;color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chip-btn{flex:none;height:32px;padding:0 12px;border:1px solid var(--pri);border-radius:999px;background:var(--pri-s);color:var(--pri);font-size:13px;font-weight:600}
+.res-empty{padding:24px 16px;text-align:center;color:var(--ink3)}
+
+.side-ctrls{position:fixed;right:16px;bottom:calc(88px + var(--sab));display:flex;flex-direction:column;gap:8px;z-index:10}
+.bottombar{position:fixed;left:16px;right:16px;bottom:calc(16px + var(--sab));display:flex;gap:8px;z-index:20}
+.bottombar .btn.pri{flex:1}
+#pickBar{display:none}
+
+.btn{height:48px;padding:0 16px;border:0;border-radius:var(--r);font-size:16px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap}
+.btn.pri{background:var(--pri);color:#fff}
+.btn.pri:active{background:var(--pri-d)}
+.btn.pri:disabled{opacity:.6}
+.btn.ghost{background:#fff;color:var(--ink);box-shadow:var(--sh)}
+.btn.line{background:#fff;color:var(--ink);border:1px solid var(--line)}
+.btn.danger{background:#fff;color:#E5484D;border:1px solid #F7C6C7}
+.btn b{color:var(--pri)}
+
+/* 选点模式 */
+.pick-pin{display:none;position:fixed;left:50%;top:50%;transform:translate(-50%,-100%);z-index:15;pointer-events:none;filter:drop-shadow(0 4px 6px rgba(0,0,0,.25))}
+.pick-hint{display:none;position:fixed;top:calc(16px + var(--sat));left:50%;transform:translateX(-50%);z-index:20;padding:8px 16px;border-radius:999px;background:rgba(31,35,41,.85);color:#fff;font-size:14px;white-space:nowrap}
+body.picking .pick-pin,body.picking .pick-hint{display:block}
+body.picking #pickBar{display:flex}
+body.picking #mainBar,body.picking .topbar,body.picking .results{display:none!important}
+
+/* ---------- 地图标点 ---------- */
+.mk{display:flex;flex-direction:column;align-items:center;cursor:pointer}
+/* 圈区域 / 选点时标点不拦截点击，点击穿透到地图 */
+body.drawing .mk,body.picking .mk,body.drawing .amap-marker,body.picking .amap-marker{pointer-events:none}
+.mk-card{display:flex;align-items:center;gap:6px;max-width:168px;padding:3px 10px 3px 3px;background:#fff;border:2px solid var(--c);border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.18)}
+.mk-card img,.mk-noimg{width:36px;height:36px;flex:none;border-radius:7px;object-fit:cover;background:var(--bg);display:grid;place-items:center;color:var(--ink3)}
+.mk-card b{font-size:12px;line-height:16px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mk-tail{width:2px;height:8px;background:var(--c)}
+.mk-dot{width:12px;height:12px;border-radius:50%;background:var(--c);border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.3)}
+body.z-far .mk-card img,body.z-far .mk-noimg{display:none}
+body.z-far .mk-card{padding:2px 8px}
+body.z-vfar .mk-card,body.z-vfar .mk-tail{display:none}
+
+/* ---------- 未配置 Key 的引导卡 ---------- */
+.setup{position:fixed;left:16px;right:16px;top:50%;transform:translateY(-50%);max-width:400px;margin:0 auto;padding:24px;background:#fff;border-radius:16px;box-shadow:var(--sh);z-index:30}
+.setup h2{margin:0 0 8px;font-size:18px}
+.setup p{margin:0 0 16px;color:var(--ink2)}
+.setup ol{margin:0 0 16px;padding-left:20px;color:var(--ink2)}
+.setup ol li{margin-bottom:4px}
+.setup a{color:var(--pri)}
+.setup .btn{width:100%}
+.setup .err{padding:8px 12px;margin-bottom:16px;border-radius:8px;background:#FFF0F0;color:#C62828;font-size:13px}
+
+/* ---------- 底部抽屉（桌面端为右侧面板） ---------- */
+.backdrop{position:fixed;inset:0;background:rgba(0,0,0,.35);opacity:0;pointer-events:none;transition:opacity .2s;z-index:40}
+.sheet{position:fixed;left:0;right:0;bottom:0;max-height:88vh;max-height:88dvh;display:flex;flex-direction:column;background:#fff;border-radius:16px 16px 0 0;z-index:41;
+  transform:translateY(105%);visibility:hidden;transition:transform .25s ease,visibility 0s .25s}
+body.sheet-open .backdrop{opacity:1;pointer-events:auto}
+body.sheet-open .sheet{transform:none;visibility:visible;transition:transform .25s ease,visibility 0s}
+.sheet-handle{width:40px;height:4px;margin:8px auto 0;border-radius:2px;background:var(--line);flex:none}
+#sheetBody{flex:1;overflow:auto;padding:0 16px;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+#sheetBody::after{content:'';display:block;height:calc(16px + var(--sab))}
+.sheet-head{position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:12px 0 8px;background:#fff}
+.sheet-head h2{margin:0;font-size:18px;font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.x{width:36px;height:36px;flex:none;border:0;border-radius:50%;background:var(--bg);color:var(--ink2);display:grid;place-items:center}
+@media (min-width:768px){
+  .topbar{right:auto;width:440px}
+  .results{right:auto;width:440px}
+  .bottombar{right:auto;width:440px}
+  .sheet{left:auto;top:0;width:420px;max-height:none;border-radius:0;transform:translateX(105%);box-shadow:-8px 0 24px rgba(0,0,0,.12)}
+  .sheet-handle{display:none}
+  .backdrop{background:transparent}
+}
+
+/* ---------- 表单 ---------- */
+.field{display:block;margin:16px 0}
+.field>span{display:flex;align-items:baseline;gap:8px;margin-bottom:8px;font-size:13px;font-weight:600;color:var(--ink2)}
+.field>span small{font-weight:400;color:var(--ink3)}
+.field em{color:var(--pri);font-style:normal}
+.input{width:100%;height:44px;padding:0 12px;border:1px solid var(--line);border-radius:8px;background:#fff;font-size:16px;outline:0}
+textarea.input{height:auto;padding:10px 12px;resize:vertical}
+.input:focus{border-color:var(--pri)}
+.input.bad{border-color:#E5484D}
+.loc{display:flex;gap:8px;align-items:flex-start;padding:12px;border-radius:8px;background:var(--bg)}
+.loc svg{color:var(--pri);margin-top:12px}
+.loc-main{flex:1;min-width:0}
+.loc-main .input{height:40px;background:#fff}
+.loc-main small{display:block;margin-top:4px;color:var(--ink3);font-size:12px}
+.link{border:0;background:none;color:var(--pri);font-size:13px;font-weight:600;padding:12px 0 0;white-space:nowrap}
+.seg{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.seg-opt{display:block;padding:8px 4px;border:1.5px solid var(--line);border-radius:8px;text-align:center;cursor:pointer;background:#fff}
+.seg-opt input{display:none}
+.seg-opt b{display:block;font-size:15px}
+.seg-opt small{display:block;font-size:11px;color:var(--ink3);line-height:1.4}
+.seg-opt.on{border-color:var(--c);background:var(--cs)}
+.seg-opt.on b{color:var(--c)}
+.seg.bad .seg-opt{border-color:#F7C6C7}
+.photos{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.ph{position:relative;aspect-ratio:1;border-radius:8px;overflow:hidden;background:var(--bg)}
+.ph img{width:100%;height:100%;object-fit:cover;display:block}
+.ph .del{position:absolute;top:4px;right:4px;width:24px;height:24px;border:0;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;display:grid;place-items:center;padding:0}
+.ph .cover{position:absolute;left:4px;bottom:4px;padding:0 6px;border-radius:4px;background:var(--pri);color:#fff;font-size:11px;line-height:18px}
+.ph-add{border:1.5px dashed #C9CDD4;background:#FAFAFB;color:var(--ink3);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:12px;cursor:pointer;width:100%;padding:0}
+.form-actions{position:sticky;bottom:0;display:flex;gap:8px;padding:12px 0 calc(12px + var(--sab));background:#fff;z-index:2}
+.form-actions .btn{flex:1}
+.form-actions .btn.pri{flex:2}
+
+/* ---------- 详情 ---------- */
+.gallery{display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x mandatory;margin:4px -16px 0;padding:0 16px}
+.gallery img{height:200px;max-width:85%;flex:none;border-radius:8px;object-fit:cover;scroll-snap-align:start;cursor:zoom-in}
+.no-photo{height:120px;border-radius:8px;background:var(--bg);display:flex;align-items:center;justify-content:center;gap:8px;color:var(--ink3)}
+.badge{display:inline-block;padding:0 8px;border-radius:999px;font-size:12px;line-height:20px;font-weight:600;color:var(--c);background:var(--cs);white-space:nowrap}
+.kv{margin:16px 0;border-top:1px solid var(--line)}
+.kv div{display:flex;gap:16px;padding:12px 0;border-bottom:1px solid var(--line)}
+.kv dt{width:64px;flex:none;color:var(--ink3)}
+.kv dd{margin:0;flex:1;min-width:0;word-break:break-all}
+.kv a{color:var(--pri);text-decoration:none;font-weight:600}
+.actions{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:8px}
+.actions .btn{font-size:15px;padding:0 8px}
+
+/* ---------- 记录列表 ---------- */
+.filters{display:flex;gap:8px;overflow-x:auto;padding:8px 0}
+.fchip{height:32px;padding:0 12px;border:1px solid var(--line);border-radius:999px;background:#fff;font-size:13px;white-space:nowrap}
+.fchip.on{border-color:var(--ink);background:var(--ink);color:#fff}
+.li{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);cursor:pointer}
+.li:active{background:var(--bg)}
+.li img,.li .noimg{width:56px;height:56px;flex:none;border-radius:8px;object-fit:cover;background:var(--bg);display:grid;place-items:center;color:var(--ink3)}
+.li-main{flex:1;min-width:0}
+.li-top{display:flex;align-items:center;gap:8px}
+.li-top b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:15px}
+.li-main small{display:block;color:var(--ink3);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.empty{padding:40px 0;text-align:center;color:var(--ink3)}
+.list-foot{position:sticky;bottom:0;padding:12px 0 calc(12px + var(--sab));background:#fff;z-index:2}
+.list-foot .row{display:flex;gap:8px}
+.list-foot .btn{flex:1}
+.tip{margin:8px 0 0;font-size:12px;color:var(--ink3);text-align:center}
+.legend{display:flex;gap:16px;font-size:12px;color:var(--ink2);padding:4px 0}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px;vertical-align:-1px}
+
+/* ---------- 设置 ---------- */
+.help{font-size:12px;color:var(--ink3);margin-top:4px}
+.help a{color:var(--pri)}
+
+/* ---------- 吐司 / 看图 / 加载 ---------- */
+.toast{position:fixed;left:50%;top:calc(76px + var(--sat));transform:translateX(-50%);width:max-content;max-width:calc(100% - 32px);padding:10px 16px;border-radius:8px;background:rgba(31,35,41,.9);color:#fff;font-size:14px;z-index:60;text-align:center}
+.viewer{position:fixed;inset:0;z-index:70;background:#000;display:flex;align-items:center;justify-content:center}
+.viewer img{max-width:100%;max-height:100%;object-fit:contain}
+.busy{position:fixed;inset:0;z-index:65;background:rgba(255,255,255,.6);display:flex;align-items:center;justify-content:center}
+.busy div{padding:16px 24px;border-radius:12px;background:#fff;box-shadow:var(--sh);font-weight:600}
+
+/* ---------- 待核实标点 ---------- */
+.mk.pending .mk-card{border-style:dashed;background:#FFFBF2;padding:3px 4px 3px 8px;max-width:150px}
+.mk.pending .mk-noimg{background:#FFF1D6;color:#B76E00}
+.mk-tag{flex:none;padding:0 4px;border-radius:4px;background:#F5A524;color:#fff;font-size:10px;line-height:16px;font-weight:600}
+body.z-far .mk-tag{display:none}
+/* 待核实往往成批出现，17 级以下只显示圆点，避免卡片叠成一片 */
+body.z-mid .mk.pending .mk-card,body.z-mid .mk.pending .mk-tail{display:none}
+body.z-mid .mk.pending .mk-dot{width:10px;height:10px;border-width:1.5px}
+.badge.pend{--c:#B76E00;--cs:#FFF1D6}
+.bottombar .btn.task b{color:#B76E00}
+
+/* ---------- 圈区域模式 ---------- */
+#drawBar{display:none}
+body.drawing #drawBar{display:flex}
+body.drawing #mainBar,body.drawing .topbar,body.drawing .results,body.drawing .side-ctrls{display:none!important}
+body.drawing .draw-hint{display:block}
+.draw-hint{display:none;position:fixed;top:calc(16px + var(--sat));left:50%;transform:translateX(-50%);z-index:20;padding:8px 16px;border-radius:999px;background:rgba(31,35,41,.85);color:#fff;font-size:14px;white-space:nowrap}
+.vx{width:14px;height:14px;border-radius:50%;background:#fff;border:3px solid var(--pri);box-shadow:0 1px 3px rgba(0,0,0,.3)}
+
+/* ---------- 区域 / 任务列表 ---------- */
+.area{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);cursor:pointer}
+.area-ico{width:40px;height:40px;flex:none;border-radius:8px;background:var(--pri-s);color:var(--pri);display:grid;place-items:center}
+.area-main{flex:1;min-width:0}
+.area-main b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.area-main small{display:block;color:var(--ink3);font-size:12px}
+.mini{height:32px;padding:0 12px;border:1px solid var(--line);border-radius:8px;background:#fff;font-size:13px;white-space:nowrap}
+.mini.pri{border-color:var(--pri);background:var(--pri-s);color:var(--pri);font-weight:600}
+.mini.danger{color:#E5484D;border-color:#F7C6C7}
+.prog{height:4px;margin-top:6px;border-radius:2px;background:var(--line);overflow:hidden}
+.prog i{display:block;height:100%;background:#12A150}
+.dist{flex:none;font-size:12px;font-weight:600;color:var(--ink2);white-space:nowrap}
+.dist.near{color:#12A150}
+
+/* 区域内搜索结果勾选 */
+.types{display:flex;flex-wrap:wrap;gap:8px;padding:8px 0}
+.srow{display:flex;gap:8px}
+.srow .input{flex:1}
+.pick-head{display:flex;align-items:center;justify-content:space-between;padding:12px 0 4px;font-size:13px;color:var(--ink2)}
+.pick-head .ops{display:flex;gap:8px}
+.ck{display:flex;align-items:flex-start;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);cursor:pointer}
+.ck input{width:20px;height:20px;margin:2px 0 0;flex:none;accent-color:var(--pri)}
+.ck.dis{opacity:.45;cursor:default}
+.ck-main{flex:1;min-width:0}
+.ck-main b{display:block;font-weight:600}
+.ck-main small{display:block;color:var(--ink3);font-size:12px}
+
+/* 核实提示条 */
+.banner{display:flex;gap:8px;align-items:center;margin:4px 0 8px;padding:10px 12px;border-radius:8px;font-size:13px}
+.banner.ok{background:#E8F7EE;color:#0E7A3D}
+.banner.warn{background:#FFF1D6;color:#8A5300}
+.banner.err{background:#FDECEC;color:#B42318}
+
+/* ---------- 在线版：登录 / 同步状态 / 角色 ---------- */
+body:not(.is-admin) .admin-only{display:none!important}
+.login{position:fixed;inset:0;z-index:40;display:grid;place-items:center;padding:16px;background:var(--bg)}
+.login form{width:100%;max-width:360px;padding:24px;background:#fff;border-radius:16px;box-shadow:var(--sh)}
+.login h2{margin:0 0 4px;font-size:22px}
+.login p{margin:0 0 16px;color:var(--ink3);font-size:13px}
+.login .btn{width:100%;margin-top:8px}
+.login .err{margin-bottom:12px;padding:10px 12px;border-radius:8px;background:#FDECEC;color:#B42318;font-size:13px}
+.sync-chip{position:fixed;left:16px;top:calc(68px + var(--sat));z-index:19;height:28px;padding:0 10px;border:0;border-radius:999px;background:#fff;color:var(--ink2);font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;box-shadow:var(--sh)}
+.sync-chip i{width:8px;height:8px;border-radius:50%;background:var(--c,#12A150)}
+body.picking .sync-chip,body.drawing .sync-chip{display:none}
+.acct{display:flex;align-items:center;gap:12px;padding:12px;margin-bottom:12px;border-radius:var(--r);background:var(--bg)}
+.acct .av{width:40px;height:40px;border-radius:50%;background:var(--pri);color:#fff;font-weight:700;display:grid;place-items:center;flex:none}
+.acct b{display:block}
+.acct small{color:var(--ink3)}
+.ph-load{display:grid;place-items:center;color:var(--ink3);font-size:12px;background:var(--bg)}
+</style>
+</head>
+<body>
+<div id="map"></div>
+
+<!-- 选点模式中心针 -->
+<svg class="pick-pin" width="40" height="52" viewBox="0 0 40 52" aria-hidden="true">
+  <path d="M20 0C9 0 0 9 0 20c0 14 20 32 20 32s20-18 20-32C40 9 31 0 20 0z" fill="#FF6A3D"/>
+  <circle cx="20" cy="20" r="8" fill="#fff"/>
+</svg>
+<div class="pick-hint">拖动地图，让针尖对准店铺门口</div>
+
+<header class="topbar">
+  <div class="search">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+    <input id="q" type="search" placeholder="搜索成都的店铺、地址" autocomplete="off" enterkeyhint="search">
+    <button class="q-clear" id="qClear" aria-label="清空" hidden><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+  </div>
+  <button class="icon-btn" id="btnSettings" aria-label="设置">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+  </button>
+</header>
+<div class="results" id="results" hidden></div>
+
+<div class="side-ctrls">
+  <button class="icon-btn" id="btnLocate" aria-label="定位到我">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+  </button>
+  <button class="icon-btn" id="btnAreas" aria-label="调查区域" title="调查区域">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 7l7-4 9 5-2 11-11 2z" stroke-dasharray="3 2.5"/><circle cx="4" cy="7" r="1.5" fill="currentColor"/><circle cx="20" cy="8" r="1.5" fill="currentColor"/><circle cx="7" cy="21" r="1.5" fill="currentColor"/></svg>
+  </button>
+</div>
+
+<footer class="bottombar" id="mainBar">
+  <button class="btn ghost" id="btnList">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+    记录 <b id="count">0</b>
+  </button>
+  <button class="btn ghost task" id="btnTasks">待核实 <b id="pcount">0</b></button>
+  <button class="btn pri" id="btnPin">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+    标点
+  </button>
+</footer>
+<footer class="bottombar" id="pickBar">
+  <button class="btn ghost" id="pickCancel">取消</button>
+  <button class="btn pri" id="pickOk">确认位置</button>
+</footer>
+<div class="draw-hint" id="drawHint">点击地图依次添加边界点（至少 3 个）</div>
+<footer class="bottombar" id="drawBar">
+  <button class="btn ghost" id="drawCancel">取消</button>
+  <button class="btn ghost" id="drawUndo">撤销</button>
+  <button class="btn pri" id="drawOk">完成圈选</button>
+</footer>
+
+<div class="setup" id="setup" hidden></div>
+<button class="sync-chip" id="syncChip" hidden><i></i><span>连接中…</span></button>
+<div class="login" id="login" hidden>
+  <form id="loginForm" novalidate>
+    <h2>地推标点</h2>
+    <p>在线版 · 请用管理员分配的账号登录</p>
+    <div class="err" id="loginErr" hidden></div>
+    <label class="field"><span>邮箱</span><input class="input" name="email" type="email" autocomplete="username" inputmode="email" required></label>
+    <label class="field"><span>密码</span><input class="input" name="password" type="password" autocomplete="current-password" required></label>
+    <button class="btn pri" type="submit" id="loginBtn">登录</button>
+  </form>
+</div>
+<div class="backdrop" id="backdrop"></div>
+<section class="sheet" id="sheet" role="dialog" aria-modal="true">
+  <div class="sheet-handle"></div>
+  <div id="sheetBody"></div>
+</section>
+<div class="toast" id="toast" hidden></div>
+<div class="viewer" id="viewer" hidden><img alt=""></div>
+<div class="busy" id="busy" hidden><div>处理中…</div></div>
+<input type="file" id="photoInput" accept="image/*" multiple hidden>
+
+<script>
+'use strict';
+/* ==================== 配置区 ==================== */
+// 团队统一部署时，把高德 Key 和安全密钥写在这里即可，所有人免配置；
+// 留空则每个人在页面「设置」里自行填写（只存在本机浏览器）。
+const CONFIG = {
+  AMAP_KEY: 'b2f01682a547c3be8d9cf440dcad7fa5',
+  AMAP_SECURITY_CODE: '6d8b0ae52291c699ca664ba6147f05cd',
+  // Supabase 项目地址与公开 anon key（anon key 本来就是给前端用的，数据安全靠数据库的权限规则）
+  SUPABASE_URL: 'https://hgwcmopybuimascxgpvm.supabase.co',
+  SUPABASE_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhnd2Ntb3B5YnVpbWFzY3hncHZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE3ODgzMDIsImV4cCI6MjEwNzM2NDMwMn0.SbjZ12G7noJM2IU_ni2URDfK0Q0rS0SAMZoPZobAB6E',
+};
+
+// 成都市行政区外接矩形（地图拖动范围限制，GCJ-02）
+const CHENGDU = { center: [104.0665, 30.5723], sw: [102.98, 30.08], ne: [104.90, 31.45] };
+// 店家规模三档
+const SCALES = {
+  S: { label: '小型', desc: '<30㎡ · 1-3人', color: '#12A150' },
+  M: { label: '中型', desc: '30-100㎡ · 4-10人', color: '#2F6BFF' },
+  L: { label: '大型', desc: '>100㎡ · 10人以上', color: '#8E4EC6' },
+};
+const MAX_PHOTOS = 3;
+const VERIFY_RADIUS = 100;   // 待核实：必须在标点多少米内才能提交
+const AREA_PAGES = 8;        // 区域搜索最多翻几页（每页 25 条，即最多 200 家）
+// 区域搜索的商家类型（高德 POI 大类名称）
+const POI_TYPES = ['餐饮服务', '购物服务', '生活服务', '体育休闲服务', '住宿服务', '汽车服务', '医疗保健服务', '科教文化服务', '商务住宅', '公司企业'];
+// 记录状态：manual=手动标点 / pending=待核实 / verified=已核实
+const STATUS = { manual: '手动标点', pending: '待核实', verified: '已核实' };
+const LS_KEYS = { key: 'dt.amapKey', sec: 'dt.amapSec', who: 'dt.recorder' };
+// 导出/导入用的库按需加载，国内 CDN 优先
+const LIBS = {
+  JSZip: [
+    'https://cdn.bootcdn.net/ajax/libs/jszip/3.10.1/jszip.min.js',
+    'https://cdn.staticfile.net/jszip/3.10.1/jszip.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js',
+  ],
+  supabase: [
+    'vendor/supabase-2.45.4.min.js',   // 随页面一起部署，不依赖海外 CDN
+    'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js',
+    'https://unpkg.com/@supabase/supabase-js@2.45.4/dist/umd/supabase.js',
+  ],
+  XLSX: [
+    'https://cdn.bootcdn.net/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
+    'https://cdn.staticfile.net/xlsx/0.18.5/xlsx.full.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
+  ],
+};
+
+/* ==================== 工具函数 ==================== */
+const $ = (s, el = document) => el.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const store = {
+  get(k) { try { return localStorage.getItem(k) || ''; } catch { return ''; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+};
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+const pad = (n, w = 2) => String(n).padStart(w, '0');
+const fmtTime = t => { const d = new Date(t); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+const stamp = () => { const d = new Date(); return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}`; };
+const scaleOf = k => SCALES[k] || { label: '未填', desc: '', color: '#8F959E' };
+const scaleStyle = k => { const c = scaleOf(k).color; return `--c:${c};--cs:${c}1F`; };
+const statusOf = r => r.status || 'manual';
+const isPending = r => statusOf(r) === 'pending';
+// 两点球面距离（米），坐标均为 GCJ-02 [lng, lat]
+function distance(a, b) {
+  const R = 6371008.8, rad = Math.PI / 180;
+  const dLat = (b[1] - a[1]) * rad, dLng = (b[0] - a[0]) * rad;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a[1] * rad) * Math.cos(b[1] * rad) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+const fmtDist = m => m < 1000 ? Math.round(m) + ' 米' : (m / 1000).toFixed(1) + ' 公里';
+// 射线法判断点是否在多边形内
+function inPolygon(p, path) {
+  let inside = false;
+  for (let i = 0, j = path.length - 1; i < path.length; j = i++) {
+    const [xi, yi] = path[i], [xj, yj] = path[j];
+    if ((yi > p[1]) !== (yj > p[1]) && p[0] < (xj - xi) * (p[1] - yi) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+// 多边形面积（平方公里，近似）
+function polygonArea(path) {
+  const rad = Math.PI / 180, R = 6371.0088;
+  let s = 0;
+  for (let i = 0; i < path.length; i++) {
+    const [x1, y1] = path[i], [x2, y2] = path[(i + 1) % path.length];
+    s += (x2 - x1) * rad * (2 + Math.sin(y1 * rad) + Math.sin(y2 * rad));
+  }
+  return Math.abs(s * R * R / 2);
+}
+const safeName = s =>String(s).replace(/[\\/:*?"<>|\s]+/g, '_').slice(0, 30) || '未命名';
+
+const ICON = {
+  cam: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>',
+  close: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+  pin: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>',
+};
+
+let toastTimer;
+function toast(msg, ms = 2400) {
+  const t = $('#toast');
+  t.textContent = msg; t.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.hidden = true; }, ms);
+}
+const busy = on => { $('#busy').hidden = !on; };
+
+function loadScript(src) {
+  return new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = src; s.onload = res;
+    s.onerror = () => { s.remove(); rej(new Error('加载失败 ' + src)); };
+    document.head.appendChild(s);
+  });
+}
+async function needLib(name) {
+  if (window[name]) return window[name];
+  for (const src of LIBS[name]) {
+    try { await loadScript(src); if (window[name]) return window[name]; } catch {}
+  }
+  throw new Error(`${name} 组件加载失败，请检查网络后重试`);
+}
+function download(blob, filename) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = filename;
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 5000);
+}
+
+/* ==================== 数据层：本地缓存 + 上传队列 + Supabase ====================
+ * 和单机版保持同样的 DB.shops / DB.areas 接口，业务代码基本不用改：
+ *   - 写入：先存本机 IndexedDB 并进「待上传」队列，有网时由 Sync 按顺序传到 Supabase
+ *   - 删除：软删除（deleted=true），这样其他人增量同步时也能收到
+ *   - 照片：记录里只存 Storage 路径；照片本身缓存在本机 blobs 表，按需下载 */
+const LDB = (() => {
+  let dbp;
+  const open = () => dbp || (dbp = new Promise((res, rej) => {
+    const r = indexedDB.open('ditui-pin-online', 1);
+    r.onupgradeneeded = () => {
+      const db = r.result;
+      db.createObjectStore('shops', { keyPath: 'id' });
+      db.createObjectStore('areas', { keyPath: 'id' });
+      db.createObjectStore('queue', { keyPath: 'k' });   // 待上传操作，同一条记录只留最新一次
+      db.createObjectStore('blobs');                    // 照片缓存：Storage 路径 -> Blob
+      db.createObjectStore('meta');                     // 同步游标、账号缓存等
+    };
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  }));
+  const run = async (names, mode, fn) => {
+    const db = await open();
+    return new Promise((res, rej) => {
+      const t = db.transaction(names, mode);
+      const out = fn(n => t.objectStore(n));
+      const reqs = [].concat(out || []);
+      t.oncomplete = () => res(reqs.length === 1 ? reqs[0].result : reqs.map(q => q.result));
+      t.onerror = () => rej(t.error);
+      t.onabort = () => rej(t.error || new Error('写入被中止（可能是存储空间不足）'));
+    });
+  };
+  return {
+    run,
+    all: name => run(name, 'readonly', st => st(name).getAll()),
+    get: (name, key) => run(name, 'readonly', st => st(name).get(key)),
+    put: (name, val, key) => run(name, 'readwrite', st => key === undefined ? st(name).put(val) : st(name).put(val, key)),
+    del: (name, key) => run(name, 'readwrite', st => st(name).delete(key)),
+    clearAll: () => run(['shops', 'areas', 'queue', 'blobs', 'meta'], 'readwrite', st => ['shops', 'areas', 'queue', 'blobs', 'meta'].map(n => st(n).clear())),
+  };
+})();
+
+// 照片 Blob <-> Storage 路径：编辑已有记录时，没换的照片不重复上传
+const blobPath = new WeakMap();
+const PHOTO_BUCKET = 'photos';
+async function getPhotoBlob(path) {
+  let b = await LDB.get('blobs', path).catch(() => null);
+  if (!b) {
+    if (!sb) throw new Error('未连接服务器');
+    const { data, error } = await sb.storage.from(PHOTO_BUCKET).download(path);
+    if (error || !data) throw new Error('照片下载失败' + (navigator.onLine ? '' : '（离线）'));
+    b = data.type ? data : new Blob([data], { type: 'image/jpeg' });
+    LDB.put('blobs', b, path).catch(() => {});
+  }
+  blobPath.set(b, path);
+  return b;
+}
+async function getPhotoBlobs(paths) {
+  const out = [];
+  for (const p of paths || []) { try { out.push(await getPhotoBlob(p)); } catch {} }
+  return out;
+}
+
+// 本地记录（驼峰）<-> 数据库行（下划线）
+const SHOP_COLS = {
+  id: 'id', status: 'status', name: 'name', phone: 'phone', scale: 'scale', note: 'note', address: 'address',
+  lng: 'lng', lat: 'lat', photos: 'photos', thumb: 'thumb', recorder: 'recorder', planner: 'planner',
+  areaId: 'area_id', poiId: 'poi_id', poiType: 'poi_type', verifiedAt: 'verified_at', verifyDist: 'verify_dist',
+  verifyPos: 'verify_pos', deleted: 'deleted', createdAt: 'created_at', updatedAt: 'updated_at',
+};
+const AREA_COLS = { id: 'id', name: 'name', path: 'path', deleted: 'deleted', createdAt: 'created_at', updatedAt: 'updated_at' };
+function toRow(rec, cols) {
+  const row = {};
+  for (const [k, c] of Object.entries(cols)) if (rec[k] !== undefined) row[c] = rec[k];
+  return row;
+}
+function fromRow(row, cols) {
+  const rec = {};
+  for (const [k, c] of Object.entries(cols)) rec[k] = row[c];
+  rec.owner = row.owner || ''; rec.serverAt = row.server_at || '';
+  if (cols === SHOP_COLS) {
+    rec.photos = rec.photos || []; rec.verifyDist = rec.verifyDist ?? null;
+    ['phone', 'scale', 'note', 'address', 'thumb', 'recorder', 'planner', 'areaId', 'poiId', 'poiType'].forEach(k => { rec[k] = rec[k] || ''; });
+  }
+  return rec;
+}
+
+const DB = (() => {
+  // 记录里的照片 Blob 换成 Storage 路径；新照片缓存到本机，等待上传
+  async function photosToPaths(rec) {
+    const paths = [], fresh = [];
+    for (const p of rec.photos || []) {
+      if (typeof p === 'string') { paths.push(p); continue; }
+      let path = blobPath.get(p);
+      if (!path) {
+        path = `${rec.id}/${uid()}.jpg`;
+        await LDB.put('blobs', p, path);
+        blobPath.set(p, path);
+        fresh.push(path);
+      }
+      paths.push(path);
+    }
+    rec.photos = paths;
+    return fresh;
+  }
+  const table = (name, cols) => ({
+    all: () => LDB.all(name),
+    async put(rec) { await this.putMany([rec]); },
+    async putMany(recs) {
+      for (const rec of recs) {
+        // 表单只带业务字段：补回归属人和服务器版本标记；核实后归核实人
+        const prev = (name === 'shops' ? state.shops : state.areas).get(rec.id);
+        if (rec.serverAt === undefined) rec.serverAt = (prev && prev.serverAt) || '';
+        if (rec.owner === undefined) rec.owner = (prev && prev.owner) || state.me.id;
+        if (prev && isPending(prev) && rec.status === 'verified') rec.owner = state.me.id;
+        const files = name === 'shops' ? await photosToPaths(rec) : [];
+        await Sync.enqueue(name, rec, files);
+      }
+    },
+    async del(id) { await this.delMany([id]); },
+    async delMany(ids) {
+      for (const id of ids) {
+        const cur = name === 'shops' ? state.shops.get(id) : state.areas.get(id);
+        if (!cur) continue;
+        await Sync.enqueue(name, { ...cur, deleted: true, updatedAt: Math.max(Date.now(), (cur.updatedAt || 0) + 1) }, []);
+      }
+    },
+  });
+  return { shops: table('shops', SHOP_COLS), areas: table('areas', AREA_COLS) };
+})();
+
+/* ==================== 同步引擎 ====================
+ * 队列：每条记录一个 key（shops:id），离线多次修改只保留最新一次；按先后顺序上传
+ * 拉取：按 server_at 增量拉；实时推送只当「有变化」的提醒，收到后立即增量拉取 */
+let sb = null;   // Supabase 客户端
+const Sync = (() => {
+  let busyFlag = false, again = false, timer = null, pullTimer = null, seq = Date.now();
+  const st = { pending: 0, online: navigator.onLine, syncing: false, error: '', lastOk: 0, realtime: false };
+
+  async function enqueue(table, rec, files) {
+    const k = table + ':' + rec.id;
+    const old = await LDB.get('queue', k);
+    const isNew = old ? old.isNew : !rec.serverAt;   // 服务器上还没有这条
+    const cleaned = { ...rec }; delete cleaned.serverAt;
+    const item = {
+      k, table, id: rec.id, isNew, seq: old ? old.seq : ++seq,
+      rec: cleaned, files: [...new Set([...(old ? old.files : []), ...files])],
+    };
+    // 新记录还没上传就被删：直接撤销，不用告诉服务器
+    if (rec.deleted && isNew) {
+      await LDB.run(['queue', table], 'readwrite', s => [s('queue').delete(k), s(table).delete(rec.id)]);
+    } else {
+      await LDB.run(['queue', table], 'readwrite', s => [s('queue').put(item), rec.deleted ? s(table).delete(rec.id) : s(table).put(rec)]);
+    }
+    await refreshCount();
+    kick(300);
+  }
+  async function refreshCount() {
+    try { st.pending = (await LDB.run('queue', 'readonly', s => s('queue').count())); } catch {}
+    renderSyncChip();
+  }
+  function kick(ms = 0) { clearTimeout(timer); timer = setTimeout(run, ms); }
+
+  // 网络类错误：保留队列稍后重试；其余（权限、校验）是被服务器拒绝
+  const isNetErr = e => !e || !e.code || /fetch|network|timeout|Load failed/i.test(e.message || '');
+  const isAuthErr = e => e && (e.code === 'PGRST301' || e.code === 'PGRST303' || /JWT/i.test(e.message || ''));
+
+  async function uploadFiles(item) {
+    for (const path of item.files) {
+      const blob = await LDB.get('blobs', path);
+      if (!blob) continue;
+      const { error } = await sb.storage.from(PHOTO_BUCKET).upload(path, blob, { contentType: 'image/jpeg', upsert: false });
+      if (error && !/exists|Duplicate/i.test(error.message || '') && String(error.statusCode) !== '409') {
+        throw Object.assign(new Error('照片上传失败：' + error.message), { net: true });
+      }
+    }
+  }
+  async function pushOne(item) {
+    const cols = item.table === 'shops' ? SHOP_COLS : AREA_COLS;
+    const row = toRow(item.rec, cols);
+    row.created_by = state.me.id;
+    if (item.files.length) await uploadFiles(item);
+    let res;
+    if (item.isNew) {
+      res = await sb.from(item.table).insert(row).select();
+      if (res.error && res.error.code === '23505') item.isNew = false;   // 已经传过了（上次没收到回应）
+    }
+    if (!item.isNew) {
+      delete row.created_by;
+      res = await sb.from(item.table).update(row).eq('id', item.id).select();
+    }
+    if (res.error) {
+      if (isNetErr(res.error)) throw Object.assign(new Error(res.error.message), { net: true });
+      if (isAuthErr(res.error)) throw Object.assign(new Error('登录已过期'), { auth: true });
+      return { rejected: res.error.message };
+    }
+    if (!res.data || !res.data.length) return { rejected: '服务器上已有更新的版本，或你没有权限修改' };
+    return { row: res.data[0] };
+  }
+
+  async function run() {
+    if (!sb || !state.me) return;
+    if (busyFlag) { again = true; return; }   // 正在同步：结束后马上再跑一轮
+    again = false;
+    if (!navigator.onLine) { st.online = false; renderSyncChip(); return; }
+    busyFlag = true; st.syncing = true; st.online = true; renderSyncChip();
+    try {
+      const items = (await LDB.all('queue')).sort((a, b) => a.seq - b.seq);
+      for (const item of items) {
+        let r;
+        try { r = await pushOne(item); }
+        catch (e) {
+          if (e.auth) { st.error = '登录已过期，请重新登录'; showLogin('登录已过期，请重新登录（未上传的数据不会丢）'); }
+          else { st.error = navigator.onLine ? '网络不稳，稍后自动重试' : ''; }
+          throw e;
+        }
+        // 传完再检查：上传期间本条又被改过，就保留新版本继续排队
+        const now = await LDB.get('queue', item.k);
+        const changed = now && now.rec.updatedAt !== item.rec.updatedAt;
+        if (now && !changed) await LDB.del('queue', item.k);
+        else if (now) await LDB.put('queue', { ...now, isNew: false, files: now.files.filter(f => !item.files.includes(f)) });
+        if (r.rejected) {
+          toast(`「${item.rec.name}」上传被服务器拒绝：${r.rejected}`, 6000);
+          await refetch(item.table, item.id);   // 以服务器为准恢复
+        } else if (!changed) {
+          applyRow(item.table, r.row);
+          if (item.rec.deleted && item.table === 'shops' && item.rec.photos.length) {
+            sb.storage.from(PHOTO_BUCKET).remove(item.rec.photos).catch(() => {});   // 删记录顺带删照片（尽力而为）
+          }
+        }
+      }
+      await pull();
+      st.error = ''; st.lastOk = Date.now();
+    } catch (e) {
+      st.lastErr = String(e && e.message || e);
+      if (!st.error && navigator.onLine) st.error = '网络不稳，稍后自动重试';
+      clearTimeout(timer); timer = setTimeout(run, 15000);   // 15 秒后重试
+    } finally {
+      busyFlag = false; st.syncing = false;
+      await refreshCount();
+      if (again) kick(100);
+    }
+  }
+
+  // 拉取服务器上的变化（与上次游标重叠 10 秒，防止漏掉同一时刻提交的数据）
+  async function pull() {
+    for (const table of ['areas', 'shops']) {
+      const cur = (await LDB.get('meta', 'cursor:' + table)) || '1970-01-01T00:00:00Z';
+      const since = new Date(new Date(cur).getTime() - 10000).toISOString();
+      let max = cur, from = 0;
+      for (;;) {
+        const { data, error } = await sb.from(table).select('*').gt('server_at', since)
+          .order('server_at').order('id').range(from, from + 999);
+        if (error) throw Object.assign(new Error(error.message), { net: isNetErr(error) });
+        const queued = new Set((await LDB.all('queue')).map(q => q.k));
+        for (const row of data) {
+          if (!queued.has(table + ':' + row.id)) applyRow(table, row);
+          if (row.server_at > max) max = row.server_at;
+        }
+        if (data.length < 1000) break;
+        from += 1000;
+      }
+      await LDB.put('meta', max, 'cursor:' + table);
+    }
+    afterRemoteChange();
+  }
+  // 单条按服务器版本恢复（上传被拒时）
+  async function refetch(table, id) {
+    const { data } = await sb.from(table).select('*').eq('id', id);
+    if (data && data[0]) applyRow(table, data[0]);
+    else applyRow(table, { id, deleted: true });
+    afterRemoteChange();
+  }
+  function applyRow(table, row) {
+    if (table === 'shops') {
+      if (row.deleted) {
+        state.shops.delete(row.id); removeMarker(row.id); LDB.del('shops', row.id).catch(() => {});
+        return;
+      }
+      const rec = fromRow(row, SHOP_COLS);
+      state.shops.set(rec.id, rec); upsertMarker(rec); LDB.put('shops', rec).catch(() => {});
+    } else {
+      const old = state.polygons.get(row.id);
+      if (old && state.map) { state.map.remove(old); state.polygons.delete(row.id); }
+      if (row.deleted) { state.areas.delete(row.id); LDB.del('areas', row.id).catch(() => {}); return; }
+      const a = fromRow(row, AREA_COLS);
+      state.areas.set(a.id, a); drawAreaPolygon(a); LDB.put('areas', a).catch(() => {});
+    }
+  }
+  // 别人改了数据：刷新计数和正在看的列表（不打断正在填写的表单）
+  function afterRemoteChange() {
+    updateCount();
+    if (state.formOpen || !document.body.classList.contains('sheet-open')) return;
+    if ($('#lbody')) renderList();
+    else if ($('#tBody')) renderTasks();
+    else if ($('#areaList')) { const y = $('#sheetBody').scrollTop; openAreas(); $('#sheetBody').scrollTop = y; }
+  }
+
+  function schedulePull() {
+    clearTimeout(pullTimer);
+    pullTimer = setTimeout(run, 800);
+  }
+  function start() {
+    window.addEventListener('online', () => { st.online = true; kick(500); });
+    window.addEventListener('offline', () => { st.online = false; renderSyncChip(); });
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) kick(300); });
+    setInterval(() => { if (!document.hidden) kick(); }, 60000);   // 实时推送断了也能每分钟兜底
+    try {
+      sb.channel('ditui-changes')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'shops' }, schedulePull)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'areas' }, schedulePull)
+        .subscribe(s => { st.realtime = s === 'SUBSCRIBED'; renderSyncChip(); });
+    } catch {}
+    refreshCount();
+    kick();
+  }
+  return { st, enqueue, kick, start, refreshCount, pull };
+})();
+
+function renderSyncChip() {
+  const el = $('#syncChip'); if (!el || !state.me) return;
+  const st = Sync.st;
+  let c = '#12A150', t = '已同步';
+  if (!st.online) { c = '#8F959E'; t = st.pending ? `离线 · 待上传 ${st.pending}` : '离线 · 可继续标点'; }
+  else if (st.syncing) { c = '#2F6BFF'; t = st.pending ? `上传中 · 剩 ${st.pending}` : '同步中…'; }
+  else if (st.pending) { c = '#F5A524'; t = `待上传 ${st.pending}`; }
+  if (st.error && st.online) { c = '#E5484D'; t = st.pending ? `待上传 ${st.pending} · 重试中` : st.error; }
+  el.style.setProperty('--c', c);
+  $('span', el).textContent = t;
+  el.hidden = false;
+}
+
+/* ==================== 登录与角色 ==================== */
+const isAdmin = () => !!(state.me && state.me.role === 'admin');
+const canEdit = r => isAdmin() || (!!state.me && r.owner === state.me.id);
+function showLogin(msg) {
+  $('#login').hidden = false;
+  const e = $('#loginErr'); e.hidden = !msg; e.textContent = msg || '';
+}
+async function loadProfile(user) {
+  // 优先在线读取；离线时用上次缓存的资料
+  const cached = await LDB.get('meta', 'me').catch(() => null);
+  try {
+    const { data, error } = await sb.from('profiles').select('id,name,role').eq('id', user.id).single();
+    if (error) throw error;
+    const me = { id: data.id, name: data.name, role: data.role, email: user.email };
+    LDB.put('meta', me, 'me').catch(() => {});
+    return me;
+  } catch (e) {
+    if (cached && cached.id === user.id) return cached;
+    throw new Error('读取账号资料失败：' + (e.message || e));
+  }
+}
+
+/* ==================== 图片处理 ==================== */
+function loadImage(blob) {
+  return new Promise((res, rej) => {
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => { URL.revokeObjectURL(url); res(img); };
+    img.onerror = () => { URL.revokeObjectURL(url); rej(new Error('图片无法读取')); };
+    img.src = url;
+  });
+}
+// 压缩：长边 1600px，JPEG 0.82，一张约 200-400KB
+async function compressPhoto(file, max = 1600, q = 0.82) {
+  const img = await loadImage(file);
+  const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+  const c = document.createElement('canvas');
+  c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+  c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+  return new Promise((res, rej) => c.toBlob(b => b ? res(b) : rej(new Error('图片压缩失败')), 'image/jpeg', q));
+}
+// 地图标点用的小缩略图（正方形居中裁切）
+async function makeThumb(blob, size = 96) {
+  const img = await loadImage(blob);
+  const s = Math.min(img.naturalWidth, img.naturalHeight);
+  const c = document.createElement('canvas'); c.width = c.height = size;
+  c.getContext('2d').drawImage(img, (img.naturalWidth - s) / 2, (img.naturalHeight - s) / 2, s, s, 0, 0, size, size);
+  return c.toDataURL('image/jpeg', 0.75);
+}
+
+/* ==================== 全局状态 ==================== */
+const state = {
+  shops: new Map(),     // id -> 记录
+  markers: new Map(),   // id -> AMap.Marker
+  map: null, geocoder: null, placeSearch: null, geolocation: null,
+  searchMarker: null,
+  picking: false,
+  draft: null,          // 正在填写的表单草稿（重新选点时暂存）
+  listFilter: { kw: '', scale: '' },
+  areas: new Map(),     // id -> 区域 {id,name,path,createdAt}
+  polygons: new Map(),  // id -> AMap.Polygon
+  drawing: null,        // 圈区域进行中 {path, vertices, line}
+  myPos: null,          // 最近一次定位 {pos:[lng,lat], accuracy, at}
+  taskArea: '',         // 待核实列表的区域筛选
+};
+const updateCount = () => {
+  let n = 0, p = 0;
+  state.shops.forEach(r => { isPending(r) ? p++ : n++; });
+  $('#count').textContent = n;
+  $('#pcount').textContent = p;
+};
+
+/* ==================== 抽屉 ==================== */
+let sheetUrls = [];
+function openSheet(html) {
+  sheetUrls.forEach(u => URL.revokeObjectURL(u)); sheetUrls = [];
+  $('#sheetBody').innerHTML = html;
+  $('#sheetBody').scrollTop = 0;
+  document.body.classList.add('sheet-open');
+}
+function closeSheet() {
+  document.body.classList.remove('sheet-open');
+  state.formOpen = false;
+  setTimeout(() => {
+    if (document.body.classList.contains('sheet-open')) return;
+    sheetUrls.forEach(u => URL.revokeObjectURL(u)); sheetUrls = [];
+    $('#sheetBody').innerHTML = '';
+  }, 300);
+}
+const blobURL = b => { const u = URL.createObjectURL(b); sheetUrls.push(u); return u; };
+function viewPhoto(src) { const v = $('#viewer'); $('img', v).src = src; v.hidden = false; }
+
+/* ==================== 高德地图 ==================== */
+function loadAMap(key, sec) {
+  window._AMapSecurityConfig = { securityJsCode: sec };
+  const go = () => window.AMapLoader.load({
+    key, version: '2.0',
+    plugins: ['AMap.Scale', 'AMap.Geolocation', 'AMap.PlaceSearch', 'AMap.Geocoder'],
+  });
+  return window.AMapLoader ? go() : loadScript('https://webapi.amap.com/loader.js').then(go);
+}
+
+function showSetup(err) {
+  const el = $('#setup');
+  el.innerHTML = `
+    <h2>先配置高德地图 Key</h2>
+    ${err ? `<div class="err">${esc(err)}</div>` : ''}
+    <p>地图和搜索需要一个高德开放平台的 Web 端 Key（个人开发者免费）。</p>
+    <ol>
+      <li>打开 <a href="https://console.amap.com/dev/key/app" target="_blank" rel="noopener">高德开放平台控制台</a>，登录后「创建新应用」</li>
+      <li>在应用下「添加 Key」，服务平台选 <b>Web端(JS API)</b></li>
+      <li>把生成的 <b>Key</b> 和 <b>安全密钥</b> 填进设置</li>
+    </ol>
+    <button class="btn pri" id="setupGo">填写 Key</button>`;
+  el.hidden = false;
+  $('#setupGo').onclick = openSettings;
+}
+
+async function initMap() {
+  const key = CONFIG.AMAP_KEY || store.get(LS_KEYS.key);
+  const sec = CONFIG.AMAP_SECURITY_CODE || store.get(LS_KEYS.sec);
+  if (!key) { showSetup(); return; }
+  try {
+    await loadAMap(key, sec);
+  } catch (e) {
+    showSetup('地图加载失败：' + (e && e.message || e) + '。请检查 Key、安全密钥和网络。');
+    return;
+  }
+  const map = state.map = new AMap.Map('map', {
+    center: CHENGDU.center, zoom: 12, zooms: [9, 20], resizeEnable: true,
+  });
+  let ready = false;
+  map.on('complete', () => { ready = true; });
+  setTimeout(() => { if (!ready) toast('地图迟迟没加载出来：可能是 Key / 安全密钥不对，或网络问题', 5000); }, 12000);
+
+  map.setLimitBounds(new AMap.Bounds(CHENGDU.sw, CHENGDU.ne));
+  map.addControl(new AMap.Scale({ position: { left: '16px', bottom: '84px' } }));
+  state.geocoder = new AMap.Geocoder({ city: '成都' });
+  state.placeSearch = new AMap.PlaceSearch({ city: '成都', citylimit: true, pageSize: 10 });
+  state.geolocation = new AMap.Geolocation({
+    enableHighAccuracy: true, timeout: 10000, showButton: false,
+    showMarker: true, showCircle: true, panToLocation: true, zoomToAccuracy: false,
+  });
+  map.addControl(state.geolocation);
+
+  state.areaSearch = new AMap.PlaceSearch({ city: '成都', citylimit: true, pageSize: 25 });
+
+  map.on('zoomend', syncZoomClass);
+  syncZoomClass();
+  map.on('click', e => {
+    // 选点模式下点地图 = 把中心移过去（桌面端更顺手）
+    if (state.picking) map.setCenter(e.lnglat);
+    // 圈区域模式下点地图 = 加一个边界点
+    else if (state.drawing) addVertex([e.lnglat.lng, e.lnglat.lat]);
+  });
+  state.areas.forEach(drawAreaPolygon);
+  state.shops.forEach(upsertMarker);
+}
+
+// 缩得太远时简化标点：<13 级只显示名称，<11 级只显示圆点；待核实 <17 级只显示圆点
+function syncZoomClass() {
+  const z = state.map.getZoom();
+  document.body.classList.toggle('z-mid', z < 17);
+  document.body.classList.toggle('z-far', z < 13);
+  document.body.classList.toggle('z-vfar', z < 11);
+}
+
+function markerContent(r) {
+  if (isPending(r)) {
+    return `<div class="mk pending" style="--c:#F5A524">
+      <div class="mk-card"><b>${esc(r.name)}</b><span class="mk-tag">待核实</span></div>
+      <i class="mk-tail"></i><i class="mk-dot"></i></div>`;
+  }
+  return `<div class="mk" style="${scaleStyle(r.scale)}">
+    <div class="mk-card">${r.thumb ? `<img src="${r.thumb}" alt="">` : `<span class="mk-noimg">${ICON.cam}</span>`}<b>${esc(r.name)}</b></div>
+    <i class="mk-tail"></i><i class="mk-dot"></i></div>`;
+}
+function upsertMarker(r) {
+  if (!state.map) return;
+  let m = state.markers.get(r.id);
+  if (m) {
+    m.setPosition([r.lng, r.lat]);
+    m.setContent(markerContent(r));
+    m.setzIndex(isPending(r) ? 100 : 110);
+  } else {
+    m = new AMap.Marker({ position: [r.lng, r.lat], content: markerContent(r), anchor: 'bottom-center', zIndex: isPending(r) ? 100 : 110 });
+    m.on('click', e => {
+      // 兜底：圈区域 / 选点时点到标点，当作点在地图上
+      const cur = state.shops.get(r.id) || r;
+      const p = e && e.lnglat ? [e.lnglat.lng, e.lnglat.lat] : [cur.lng, cur.lat];
+      if (state.drawing) addVertex(p);
+      else if (state.picking) state.map.setCenter(p);
+      else openDetail(r.id);
+    });
+    state.map.add(m);
+    state.markers.set(r.id, m);
+  }
+}
+function removeMarker(id) {
+  const m = state.markers.get(id);
+  if (m && state.map) state.map.remove(m);
+  state.markers.delete(id);
+}
+
+// 逆地理编码：取地址 + 判断是否在成都市
+function regeo(pos) {
+  return new Promise(res => {
+    if (!state.geocoder) return res(null);
+    let done = false;
+    const timer = setTimeout(() => { if (!done) { done = true; res(null); } }, 6000);
+    state.geocoder.getAddress(pos, (status, result) => {
+      if (done) return;
+      done = true; clearTimeout(timer);
+      if (status === 'complete' && result.regeocode) {
+        const ac = result.regeocode.addressComponent || {};
+        const city = String(ac.city || ac.province || '');
+        res({ address: result.regeocode.formattedAddress || '', inChengdu: city.includes('成都') });
+      } else res(null);
+    });
+  });
+}
+
+/* ==================== 搜索 ==================== */
+let qTimer, qSeq = 0;
+function hideResults() { $('#results').hidden = true; }
+function doSearch() {
+  const kw = $('#q').value.trim();
+  if (!kw) { hideResults(); return; }
+  const seq = ++qSeq;
+  // 先搜本机已标记的
+  const mine = [...state.shops.values()]
+    .filter(r => r.name.includes(kw) || (r.address || '').includes(kw) || (r.phone || '').includes(kw))
+    .slice(0, 5);
+  if (!state.placeSearch) { renderResults(mine, [], kw, '地图未就绪'); return; }
+  state.placeSearch.search(kw, (status, result) => {
+    if (seq !== qSeq) return;
+    const pois = status === 'complete' ? ((result.poiList && result.poiList.pois) || []) : [];
+    renderResults(mine, pois, kw, status === 'error' ? '搜索出错，请检查网络 / Key' : '');
+  });
+}
+function renderResults(mine, pois, kw, err) {
+  const box = $('#results');
+  state.lastPois = pois;
+  let html = '';
+  if (mine.length) {
+    html += '<div class="res-group">已标记</div>' + mine.map(r => `
+      <div class="res-item" data-shop="${esc(r.id)}">
+        <div class="res-main"><b>${esc(r.name)}</b><small>${esc(r.address || '')}</small></div>
+        ${isPending(r) ? '<span class="badge pend">待核实</span>' : `<span class="badge" style="${scaleStyle(r.scale)}">${scaleOf(r.scale).label}</span>`}
+      </div>`).join('');
+  }
+  if (pois.length) {
+    html += '<div class="res-group">高德地点</div>' + pois.map((p, i) => `
+      <div class="res-item" data-poi="${i}">
+        <div class="res-main"><b>${esc(p.name)}</b><small>${esc(poiAddr(p))}</small></div>
+        <button class="chip-btn" data-mark="${i}">标这家</button>
+      </div>`).join('');
+  }
+  if (!html) html = `<div class="res-empty">${esc(err || `成都范围内没找到「${kw}」`)}</div>`;
+  box.innerHTML = html;
+  box.hidden = false;
+}
+const poiAddr = p => [p.adname, typeof p.address === 'string' ? p.address : ''].filter(Boolean).join(' · ');
+const poiPos = p => p.location ? [p.location.lng, p.location.lat] : null;
+
+function onResultClick(e) {
+  const shopEl = e.target.closest('[data-shop]');
+  if (shopEl) {
+    const r = state.shops.get(shopEl.dataset.shop);
+    hideResults(); $('#q').blur();
+    if (r) { focusShop(r); openDetail(r.id); }
+    return;
+  }
+  const markBtn = e.target.closest('[data-mark]');
+  const poiEl = e.target.closest('[data-poi]');
+  const p = state.lastPois && state.lastPois[(markBtn || poiEl || {}).dataset?.mark ?? (poiEl && poiEl.dataset.poi)];
+  if (!p) return;
+  const pos = poiPos(p);
+  if (!pos) { toast('这个结果没有坐标，换一个试试'); return; }
+  hideResults(); $('#q').blur();
+  state.map.setZoomAndCenter(17, pos);
+  if (state.searchMarker) state.map.remove(state.searchMarker);
+  state.searchMarker = new AMap.Marker({ position: pos, title: p.name });
+  state.map.add(state.searchMarker);
+  if (markBtn) {
+    openForm({
+      name: p.name, phone: typeof p.tel === 'string' ? p.tel.split(';')[0] : '',
+      address: [p.pname, p.cityname, p.adname, typeof p.address === 'string' ? p.address : ''].filter(Boolean).join('') || p.name,
+      lng: pos[0], lat: pos[1],
+    });
+  }
+}
+function focusShop(r) {
+  if (state.map) state.map.setZoomAndCenter(Math.max(state.map.getZoom(), 17), [r.lng, r.lat]);
+}
+
+/* ==================== 选点 ==================== */
+function startPick(draft) {
+  if (!state.map) { toast('请先配置高德 Key'); openSettings(); return; }
+  state.draft = draft || null;
+  state.picking = true;
+  hideResults();
+  document.body.classList.add('picking');
+}
+function endPick() { state.picking = false; document.body.classList.remove('picking'); }
+async function confirmPick() {
+  const c = state.map.getCenter();
+  const pos = [c.lng, c.lat];
+  const btn = $('#pickOk');
+  btn.disabled = true; btn.textContent = '获取地址…';
+  const info = await regeo(pos);
+  btn.disabled = false; btn.textContent = '确认位置';
+  if (info && !info.inChengdu) { toast('这个位置不在成都市范围内，换个地方吧'); return; }
+  endPick();
+  const d = state.draft || {};
+  openForm({ ...d, lng: pos[0], lat: pos[1], address: (info && info.address) || d.address || '' });
+}
+
+/* ==================== 定位 ==================== */
+function locateMe() {
+  return new Promise((res, rej) => {
+    if (!state.geolocation) return rej(new Error('请先配置高德 Key'));
+    state.geolocation.getCurrentPosition((status, result) => {
+      if (status === 'complete' && result && result.position) {
+        const p = result.position;
+        state.myPos = { pos: [p.lng, p.lat], accuracy: result.accuracy || 0, at: Date.now() };
+        res(state.myPos);
+      } else {
+        rej(new Error('定位失败：手机需通过 HTTPS 打开本页，并允许浏览器使用定位'));
+      }
+    });
+  });
+}
+
+/* ==================== 调查区域：圈选 ==================== */
+const AREA_STYLE = { strokeColor: '#FF6A3D', strokeWeight: 2, fillColor: '#FF6A3D', bubble: true };
+function drawAreaPolygon(a) {
+  if (!state.map) return;
+  const pg = new AMap.Polygon({ ...AREA_STYLE, path: a.path, strokeOpacity: .9, fillOpacity: .06, zIndex: 10 });
+  state.map.add(pg);
+  state.polygons.set(a.id, pg);
+}
+function startDraw() {
+  if (!isAdmin()) { toast('只有管理员可以圈区域'); return; }
+  if (!state.map) { toast('请先配置高德 Key'); openSettings(); return; }
+  closeSheet(); hideResults();
+  state.drawing = { path: [], vertices: [], shape: null };
+  document.body.classList.add('drawing');
+  updateDrawHint();
+}
+function addVertex(p) {
+  const d = state.drawing;
+  d.path.push(p);
+  const v = new AMap.Marker({ position: p, content: '<div class="vx"></div>', anchor: 'center', zIndex: 130, bubble: true });
+  state.map.add(v);
+  d.vertices.push(v);
+  redrawShape(); updateDrawHint();
+}
+function undoVertex() {
+  const d = state.drawing;
+  if (!d.path.length) return;
+  d.path.pop(); state.map.remove(d.vertices.pop());
+  redrawShape(); updateDrawHint();
+}
+function redrawShape() {
+  const d = state.drawing;
+  if (d.shape) { state.map.remove(d.shape); d.shape = null; }
+  if (d.path.length < 2) return;
+  const opt = { ...AREA_STYLE, path: d.path, strokeStyle: 'dashed', zIndex: 120 };
+  d.shape = d.path.length >= 3 ? new AMap.Polygon({ ...opt, fillOpacity: .15 }) : new AMap.Polyline(opt);
+  state.map.add(d.shape);
+}
+function updateDrawHint() {
+  const n = state.drawing.path.length;
+  $('#drawHint').textContent = n < 3 ? `点击地图添加边界点（已加 ${n} 个，至少 3 个）` : `已加 ${n} 个点，可继续添加或点「完成圈选」`;
+  $('#drawOk').disabled = n < 3;
+  $('#drawUndo').disabled = !n;
+}
+function endDraw() {
+  const d = state.drawing; if (!d) return;
+  d.vertices.forEach(v => state.map.remove(v));
+  if (d.shape) state.map.remove(d.shape);
+  state.drawing = null;
+  document.body.classList.remove('drawing');
+}
+async function finishDraw() {
+  const path = state.drawing.path.map(p => [+p[0].toFixed(6), +p[1].toFixed(6)]);
+  if (path.length < 3) return;
+  const km2 = polygonArea(path);
+  const name = prompt(`区域面积约 ${km2 < 1 ? Math.round(km2 * 1e6) + ' ㎡' : km2.toFixed(2) + ' 平方公里'}，给它起个名字：`, `区域 ${state.areas.size + 1}`);
+  if (name === null) return;   // 取消命名 = 继续编辑
+  const area = { id: uid(), name: name.trim().slice(0, 30) || `区域 ${state.areas.size + 1}`, path, createdAt: Date.now(), updatedAt: Date.now() };
+  try { await DB.areas.put(area); } catch (e) { toast('保存区域失败：' + e.message); return; }
+  endDraw();
+  state.areas.set(area.id, area);
+  drawAreaPolygon(area);
+  openAreaSearch(area.id);
+}
+function fitArea(id) {
+  const pg = state.polygons.get(id);
+  if (pg && state.map) state.map.setFitView([pg], false, [80, 120, 40, 40]);
+}
+
+/* ==================== 调查区域：列表 ==================== */
+function areaStats(id) {
+  let pending = 0, verified = 0;
+  state.shops.forEach(r => {
+    if (r.areaId !== id) return;
+    if (isPending(r)) pending++; else if (statusOf(r) === 'verified') verified++;
+  });
+  return { pending, verified, total: pending + verified };
+}
+function openAreas() {
+  const list = [...state.areas.values()].sort((a, b) => b.createdAt - a.createdAt);
+  openSheet(`
+    <div class="sheet-head"><h2>调查区域</h2><button class="x" data-close aria-label="关闭">${ICON.close}</button></div>
+    <button class="btn pri admin-only" id="newArea" style="width:100%">＋ 在地图上圈一个新区域</button>
+    <div id="areaList">${list.length ? list.map(a => {
+      const s = areaStats(a.id);
+      const pct = s.total ? Math.round(s.verified / s.total * 100) : 0;
+      return `<div class="area" data-area="${esc(a.id)}">
+        <span class="area-ico">${ICON.pin}</span>
+        <div class="area-main"><b>${esc(a.name)}</b>
+          <small>待核实 ${s.pending} · 已核实 ${s.verified} · 约 ${polygonArea(a.path).toFixed(2)} 平方公里</small>
+          <div class="prog"><i style="width:${pct}%"></i></div></div>
+        <button class="mini pri admin-only" data-asearch="${esc(a.id)}">搜商家</button>
+        <button class="mini danger admin-only" data-adel="${esc(a.id)}">删除</button>
+      </div>`;
+    }).join('') : `<div class="empty">${isAdmin() ? '还没有调查区域。圈一个区域后，可以搜出里面的商家，批量生成「待核实」任务。' : '管理员还没有划定调查区域。'}</div>`}</div>
+    <p class="tip">${isAdmin() ? '区域和待核实任务会实时出现在所有地推员的手机上。' : '点区域可在地图上定位。区域和任务由管理员安排。'}</p>`);
+  $('#newArea').onclick = startDraw;
+  $('#areaList').addEventListener('click', async e => {
+    const s = e.target.closest('[data-asearch]');
+    if (s) { openAreaSearch(s.dataset.asearch); return; }
+    const del = e.target.closest('[data-adel]');
+    if (del) { await deleteArea(del.dataset.adel); return; }
+    const row = e.target.closest('[data-area]');
+    if (row) { closeSheet(); fitArea(row.dataset.area); }
+  });
+}
+async function deleteArea(id) {
+  if (!isAdmin()) return;
+  const a = state.areas.get(id); if (!a) return;
+  const pend = [...state.shops.values()].filter(r => r.areaId === id && isPending(r)).map(r => r.id);
+  if (!confirm(`删除区域「${a.name}」？\n其中 ${pend.length} 个「待核实」标点会一并删除；已核实的数据会保留。`)) return;
+  try { await DB.shops.delMany(pend); await DB.areas.del(id); } catch (e) { toast('删除失败：' + e.message); return; }
+  pend.forEach(pid => { state.shops.delete(pid); removeMarker(pid); });
+  state.areas.delete(id);
+  const pg = state.polygons.get(id);
+  if (pg) state.map.remove(pg);
+  state.polygons.delete(id);
+  updateCount();
+  openAreas();
+  toast('区域已删除');
+}
+
+/* ==================== 调查区域：区域内搜索 → 转待核实 ==================== */
+function openAreaSearch(areaId) {
+  if (!isAdmin()) return;
+  const a = state.areas.get(areaId); if (!a) return;
+  if (!state.areaSearch) { toast('地图未就绪'); return; }
+  state.areaPick = { areaId, type: '', kw: '', results: [], checked: new Set(), capped: false };
+  fitArea(areaId);
+  openSheet(`
+    <div class="sheet-head"><h2>在「${esc(a.name)}」内搜商家</h2><button class="x" data-close aria-label="关闭">${ICON.close}</button></div>
+    <div class="types" id="asTypes">
+      <button class="fchip on" data-t="">不限类型</button>
+      ${POI_TYPES.map(t => `<button class="fchip" data-t="${t}">${t.replace(/服务$/, '')}</button>`).join('')}
+    </div>
+    <div class="srow">
+      <input class="input" id="asKw" type="search" placeholder="关键词，如：火锅、便利店、美甲" enterkeyhint="search">
+      <button class="btn pri" id="asGo">搜索</button>
+    </div>
+    <div id="asRes"><div class="empty">选一个类型或输入关键词，搜索这个区域里的商家</div></div>
+    <div class="form-actions"><button class="btn pri" id="asMake" disabled>设为待核实</button></div>`);
+  $('#asTypes').addEventListener('click', e => {
+    const b = e.target.closest('[data-t]'); if (!b) return;
+    state.areaPick.type = b.dataset.t;
+    document.querySelectorAll('#asTypes .fchip').forEach(x => x.classList.toggle('on', x === b));
+  });
+  $('#asGo').onclick = runAreaSearch;
+  $('#asKw').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); $('#asKw').blur(); runAreaSearch(); } });
+  $('#asRes').addEventListener('change', e => {
+    const ap = state.areaPick;
+    if (e.target.dataset.pid) e.target.checked ? ap.checked.add(e.target.dataset.pid) : ap.checked.delete(e.target.dataset.pid);
+    syncAreaMake();
+  });
+  $('#asRes').addEventListener('click', e => {
+    const op = e.target.closest('[data-all]'); if (!op) return;
+    const ap = state.areaPick, on = op.dataset.all === '1';
+    ap.checked.clear();
+    if (on) ap.results.forEach(p => { if (!p.exists) ap.checked.add(p.id); });
+    document.querySelectorAll('#asRes input[data-pid]').forEach(i => { i.checked = ap.checked.has(i.dataset.pid); });
+    syncAreaMake();
+  });
+  $('#asMake').onclick = createPending;
+}
+function searchPage(ps, kw, polygon, page) {
+  return new Promise(res => {
+    ps.setPageIndex(page);
+    ps.searchInBounds(kw, polygon, (status, result) => res({ status, result }));
+  });
+}
+async function runAreaSearch() {
+  const ap = state.areaPick;
+  ap.kw = $('#asKw').value.trim();
+  const kw = ap.kw || ap.type;
+  if (!kw) { toast('请选择商家类型或输入关键词'); return; }
+  const a = state.areas.get(ap.areaId);
+  const ps = state.areaSearch;
+  ps.setType(ap.type);
+  busy(true);
+  const all = [];
+  let err = '', capped = false;
+  for (let page = 1; page <= AREA_PAGES; page++) {
+    const { status, result } = await searchPage(ps, kw, state.polygons.get(a.id), page);
+    if (status === 'error') { err = '搜索出错，请检查网络 / Key'; break; }
+    if (status !== 'complete') break;   // no_data
+    const pois = (result.poiList && result.poiList.pois) || [];
+    all.push(...pois);
+    const count = (result.poiList && result.poiList.count) || 0;
+    if (pois.length < 25 || all.length >= count) break;
+    if (page === AREA_PAGES) capped = true;
+  }
+  busy(false);
+  // 二次过滤：只留真正落在多边形内、有坐标、不重复的
+  const known = new Set([...state.shops.values()].map(r => r.poiId).filter(Boolean));
+  const seen = new Set();
+  ap.results = all.filter(p => {
+    const pos = poiPos(p);
+    if (!pos || !p.id || seen.has(p.id) || !inPolygon(pos, a.path)) return false;
+    seen.add(p.id); return true;
+  }).map(p => ({ ...p, exists: known.has(p.id) }));
+  ap.checked = new Set(ap.results.filter(p => !p.exists).map(p => p.id));
+  ap.capped = capped;
+  renderAreaResults(err);
+}
+function renderAreaResults(err) {
+  const ap = state.areaPick;
+  const rs = ap.results;
+  const ex = rs.filter(p => p.exists).length;
+  $('#asRes').innerHTML = rs.length ? `
+    <div class="pick-head"><span>共 ${rs.length} 家${ex ? `（${ex} 家已在图上）` : ''}</span>
+      <span class="ops"><button class="mini" data-all="1">全选</button><button class="mini" data-all="0">全不选</button></span></div>
+    ${ap.capped ? `<div class="banner warn">结果较多，只取了前 ${AREA_PAGES * 25} 家，可缩小区域或加关键词</div>` : ''}
+    ${rs.map(p => `<label class="ck${p.exists ? ' dis' : ''}">
+      <input type="checkbox" data-pid="${esc(p.id)}"${ap.checked.has(p.id) ? ' checked' : ''}${p.exists ? ' disabled' : ''}>
+      <div class="ck-main"><b>${esc(p.name)}</b><small>${esc(poiAddr(p))}</small>
+        <small>${esc(String(p.type || '').split(';').slice(-1)[0])}${p.exists ? ' · 已在图上' : ''}</small></div>
+    </label>`).join('')}`
+    : `<div class="empty">${esc(err || '区域内没搜到符合条件的商家，换个类型或关键词试试')}</div>`;
+  syncAreaMake();
+}
+function syncAreaMake() {
+  const n = state.areaPick.checked.size;
+  $('#asMake').disabled = !n;
+  $('#asMake').textContent = n ? `设为待核实（${n} 家）` : '设为待核实';
+}
+async function createPending() {
+  if (!isAdmin()) return;
+  const ap = state.areaPick;
+  const pois = ap.results.filter(p => ap.checked.has(p.id) && !p.exists);
+  if (!pois.length) return;
+  const now = Date.now(), who = state.me.name;
+  const recs = pois.map(p => {
+    const pos = poiPos(p);
+    return {
+      id: uid(), status: 'pending', areaId: ap.areaId, poiId: p.id, poiType: String(p.type || ''),
+      name: String(p.name).slice(0, 50),
+      phone: typeof p.tel === 'string' ? p.tel.split(';')[0].slice(0, 20) : '',
+      address: [p.adname, typeof p.address === 'string' ? p.address : ''].filter(Boolean).join('').slice(0, 100),
+      lng: pos[0], lat: pos[1], scale: '', note: '', photos: [], thumb: '',
+      recorder: '', planner: who, createdAt: now, updatedAt: now,
+    };
+  });
+  try { await DB.shops.putMany(recs); } catch (e) { toast('保存失败：' + e.message); return; }
+  recs.forEach(r => { state.shops.set(r.id, r); upsertMarker(r); });
+  updateCount();
+  closeSheet();
+  fitArea(ap.areaId);
+  toast(`已生成 ${recs.length} 个「待核实」任务`);
+}
+
+/* ==================== 待核实任务列表 ==================== */
+function openTasks() {
+  const pend = [...state.shops.values()].filter(isPending);
+  const areaIds = [...new Set(pend.map(r => r.areaId))].filter(id => state.areas.has(id));
+  if (state.taskArea && !areaIds.includes(state.taskArea)) state.taskArea = '';
+  openSheet(`
+    <div class="sheet-head"><h2>待核实 ${pend.length}</h2><button class="x" data-close aria-label="关闭">${ICON.close}</button></div>
+    <div class="banner warn">走到店铺 ${VERIFY_RADIUS} 米以内，补全信息并上传实拍照片，即可完成核实。</div>
+    ${areaIds.length > 1 ? `<div class="filters" id="tArea">
+      <button class="fchip${!state.taskArea ? ' on' : ''}" data-a="">全部区域</button>
+      ${areaIds.map(id => `<button class="fchip${state.taskArea === id ? ' on' : ''}" data-a="${esc(id)}">${esc(state.areas.get(id).name)}</button>`).join('')}
+    </div>` : ''}
+    <div class="pick-head"><span id="tLoc">${state.myPos ? `按距离排序（${fmtTime(state.myPos.at).slice(11)} 定位）` : '还没定位，暂按名称排序'}</span>
+      <span class="ops"><button class="mini pri" id="tRefresh">刷新位置</button></span></div>
+    <div id="tBody"></div>`);
+  renderTasks();
+  const ta = $('#tArea');
+  if (ta) ta.addEventListener('click', e => {
+    const b = e.target.closest('[data-a]'); if (!b) return;
+    state.taskArea = b.dataset.a;
+    ta.querySelectorAll('.fchip').forEach(x => x.classList.toggle('on', x === b));
+    renderTasks();
+  });
+  $('#tRefresh').onclick = async () => {
+    busy(true);
+    try { await locateMe(); $('#tLoc').textContent = '按距离排序（刚刚定位）'; renderTasks(); }
+    catch (e) { toast(e.message, 4500); }
+    finally { busy(false); }
+  };
+}
+function renderTasks() {
+  const me = state.myPos && state.myPos.pos;
+  const list = [...state.shops.values()]
+    .filter(r => isPending(r) && (!state.taskArea || r.areaId === state.taskArea))
+    .map(r => ({ r, d: me ? distance(me, [r.lng, r.lat]) : null }))
+    .sort((a, b) => me ? a.d - b.d : a.r.name.localeCompare(b.r.name, 'zh'));
+  $('#tBody').innerHTML = list.length ? list.map(({ r, d }) => `
+    <div class="li" data-id="${esc(r.id)}">
+      <span class="noimg">${ICON.pin}</span>
+      <div class="li-main">
+        <div class="li-top"><b>${esc(r.name)}</b></div>
+        <small>${esc(r.address || '')}</small>
+        <small>${esc((state.areas.get(r.areaId) || {}).name || '')}${r.poiType ? ' · ' + esc(r.poiType.split(';').slice(-1)[0]) : ''}</small>
+      </div>
+      ${d === null ? '' : `<span class="dist${d <= VERIFY_RADIUS ? ' near' : ''}">${fmtDist(d)}</span>`}
+    </div>`).join('')
+    : '<div class="empty">没有待核实的任务。可在「调查区域」里圈区域、搜商家来生成。</div>';
+}
+
+/* ==================== 核实：到店 100 米内 ==================== */
+async function startVerify(id) {
+  const r = state.shops.get(id); if (!r) return;
+  busy(true);
+  let me;
+  try { me = await locateMe(); } catch (e) { busy(false); alert(e.message); return; }
+  busy(false);
+  const d = distance(me.pos, [r.lng, r.lat]);
+  if (d > VERIFY_RADIUS) {
+    alert(`你距离「${r.name}」约 ${fmtDist(d)}，需要走到 ${VERIFY_RADIUS} 米以内才能核实。\n（定位精度约 ${Math.round(me.accuracy)} 米）`);
+    return;
+  }
+  openForm({ ...r, photos: [], verifying: { origin: [r.lng, r.lat], dist: d } });
+}
+
+/* ==================== 新增 / 编辑表单 ==================== */
+function openForm(draft) {
+  draft.photos = draft.photos || [];
+  state.draft = draft;
+  state.formOpen = true;
+  openSheet(`
+    <div class="sheet-head"><h2>${draft.verifying ? '核实店铺' : draft.id ? '编辑店铺' : '新增标点'}</h2><button class="x" data-close aria-label="关闭">${ICON.close}</button></div>
+    ${draft.verifying ? `<div class="banner ok">✓ 你在该店约 ${Math.round(draft.verifying.dist)} 米内。请核对、补全信息，并上传实拍照片完成核实。</div>` : ''}
+    <form id="shopForm" novalidate>
+      <div class="loc">
+        ${ICON.pin}
+        <div class="loc-main">
+          <input class="input" name="address" maxlength="100" value="${esc(draft.address)}" placeholder="地址（可手动补充门牌号）">
+          <small>${draft.lng.toFixed(6)}, ${draft.lat.toFixed(6)}</small>
+        </div>
+        <button type="button" class="link" id="rePick">重新选点</button>
+      </div>
+      <label class="field"><span>店家名称 <em>*</em></span>
+        <input class="input" name="name" maxlength="50" value="${esc(draft.name)}" placeholder="如：老码头火锅（春熙路店）"></label>
+      <label class="field"><span>联系电话</span>
+        <input class="input" name="phone" type="tel" inputmode="tel" maxlength="20" value="${esc(draft.phone)}" placeholder="手机或座机"></label>
+      <div class="field"><span>实拍照片 ${draft.verifying ? '<em>*</em>' : ''}<small>最多 ${MAX_PHOTOS} 张，第 1 张作地图封面</small></span>
+        <div class="photos" id="photoGrid"></div></div>
+      <div class="field"><span>店家规模 <em>*</em></span>
+        <div class="seg" id="scaleSeg">${Object.entries(SCALES).map(([k, s]) => `
+          <label class="seg-opt${draft.scale === k ? ' on' : ''}" style="${scaleStyle(k)}">
+            <input type="radio" name="scale" value="${k}"${draft.scale === k ? ' checked' : ''}><b>${s.label}</b><small>${s.desc}</small>
+          </label>`).join('')}</div></div>
+      <label class="field"><span>备注</span>
+        <textarea class="input" name="note" rows="2" maxlength="200" placeholder="选填：营业时间、对接人、合作意向等">${esc(draft.note)}</textarea></label>
+      <p class="help">记录人：${esc(draft.verifying || !draft.id ? state.me.name : (draft.recorder || state.me.name))}（按登录账号自动记录）</p>
+      <div class="form-actions">
+        <button type="button" class="btn line" data-close>取消</button>
+        <button type="submit" class="btn pri" id="saveBtn">保存</button>
+      </div>
+    </form>`);
+  renderPhotoGrid();
+  const form = $('#shopForm');
+  form.addEventListener('submit', e => { e.preventDefault(); saveForm(); });
+  $('#scaleSeg').addEventListener('change', () => {
+    document.querySelectorAll('#scaleSeg .seg-opt').forEach(l => l.classList.toggle('on', $('input', l).checked));
+    $('#scaleSeg').classList.remove('bad');
+  });
+  $('#rePick').onclick = () => { collectForm(); state.formOpen = false; closeSheet(); startPick(state.draft); };
+}
+function collectForm() {
+  const f = $('#shopForm'); if (!f) return;
+  const fd = new FormData(f);
+  Object.assign(state.draft, {
+    name: (fd.get('name') || '').trim(), phone: (fd.get('phone') || '').trim(),
+    address: (fd.get('address') || '').trim(), note: (fd.get('note') || '').trim(),
+    scale: fd.get('scale') || '',
+  });
+}
+function renderPhotoGrid() {
+  const g = $('#photoGrid'); if (!g) return;
+  const ps = state.draft.photos;
+  g.innerHTML = ps.map((b, i) => `
+    <div class="ph"><img src="${blobURL(b)}" alt="">
+      <button type="button" class="del" data-del="${i}" aria-label="删除">${ICON.close}</button>
+      ${i === 0 ? '<span class="cover">封面</span>' : ''}</div>`).join('')
+    + (ps.length < MAX_PHOTOS ? `<button type="button" class="ph ph-add" id="phAdd">${ICON.cam}拍照/相册</button>` : '');
+}
+async function onPhotosPicked(files) {
+  const room = MAX_PHOTOS - state.draft.photos.length;
+  const list = [...files].filter(f => /^image\//.test(f.type) || /\.(jpe?g|png|heic|webp)$/i.test(f.name)).slice(0, room);
+  if (files.length > room) toast(`最多 ${MAX_PHOTOS} 张，多出的已忽略`);
+  busy(true);
+  try {
+    for (const f of list) state.draft.photos.push(await compressPhoto(f));
+  } catch (e) {
+    toast('有照片处理失败：' + e.message + '（iPhone 可在 设置→相机→格式 改为「兼容性最佳」）', 5000);
+  }
+  busy(false);
+  renderPhotoGrid();
+}
+async function saveForm() {
+  collectForm();
+  const d = state.draft;
+  const f = $('#shopForm');
+  let bad = false;
+  f.querySelectorAll('.bad').forEach(el => el.classList.remove('bad'));
+  if (!d.name) { f.name.classList.add('bad'); bad = true; }
+  if (!d.scale) { $('#scaleSeg').classList.add('bad'); bad = true; }
+  if (d.phone && !/^[\d\-+ ()转]{5,20}$/.test(d.phone)) { f.phone.classList.add('bad'); toast('电话格式不对'); return; }
+  if (bad) { toast('请补全带 * 的必填项'); return; }
+  if (d.verifying && !d.photos.length) { toast('核实必须上传至少 1 张实拍照片'); return; }
+  if (!d.verifying && !d.photos.length && !confirm('还没有实拍照片，确定先保存吗？')) return;
+
+  // 核实提交前再定位一次，防止离开现场后才提交
+  let check = null;
+  if (d.verifying) {
+    const btn = $('#saveBtn');
+    btn.disabled = true; btn.textContent = '复核位置…';
+    try {
+      const me = await locateMe();
+      check = { pos: me.pos, dist: distance(me.pos, d.verifying.origin) };
+    } catch (e) { toast(e.message, 4500); }
+    btn.disabled = false; btn.textContent = '保存';
+    if (!check) return;
+    if (check.dist > VERIFY_RADIUS) {
+      alert(`你现在距离该店约 ${fmtDist(check.dist)}，超出 ${VERIFY_RADIUS} 米，请回到店铺附近再提交。`);
+      return;
+    }
+  }
+
+  const now = Date.now();
+  const pos = [d.lng, d.lat];
+  const rec = {
+    id: d.id || uid(),
+    status: d.verifying ? 'verified' : statusOf(d),
+    name: d.name, phone: d.phone, scale: d.scale, note: d.note, address: d.address,
+    lng: d.lng, lat: d.lat, photos: d.photos,
+    thumb: d.photos.length ? await makeThumb(d.photos[0]) : '',
+    recorder: d.verifying || !d.id ? state.me.name : (d.recorder || state.me.name),
+    // 区域任务相关字段：手动标点若落在某个区域内，也自动归属该区域
+    areaId: d.areaId || ([...state.areas.values()].find(a => inPolygon(pos, a.path)) || {}).id || '',
+    poiId: d.poiId || '', poiType: d.poiType || '', planner: d.planner || '',
+    verifiedAt: check ? now : (d.verifiedAt || 0),
+    verifyDist: check ? Math.round(check.dist) : (d.verifyDist ?? null),
+    verifyPos: check ? check.pos.map(v => +v.toFixed(6)) : (d.verifyPos || null),
+    createdAt: d.createdAt || now, updatedAt: now,
+  };
+  try {
+    await DB.shops.put(rec);
+  } catch (e) {
+    toast('保存失败：' + (e && e.message || e), 5000); return;
+  }
+  state.shops.set(rec.id, rec);
+  upsertMarker(rec);
+  if (state.searchMarker) { state.map.remove(state.searchMarker); state.searchMarker = null; }
+  updateCount();
+  state.draft = null; state.formOpen = false;
+  closeSheet();
+  toast(d.verifying ? '核实完成：' + rec.name : d.id ? '已更新' : '已标记：' + rec.name);
+}
+function formDirty() {
+  if (!state.formOpen || !$('#shopForm')) return false;
+  collectForm();
+  const d = state.draft;
+  if (d.verifying) return d.photos.length > 0;
+  return !d.id && (d.name || d.phone || d.note || d.photos.length);
+}
+function tryClose() {
+  if (formDirty() && !confirm('放弃本次填写的内容？')) return;
+  state.draft = null;
+  closeSheet();
+}
+
+/* ==================== 店铺详情 ==================== */
+const navURL = r => `https://uri.amap.com/marker?position=${r.lng},${r.lat}&name=${encodeURIComponent(r.name)}&coordinate=gaode&callnative=1`;
+async function deleteShop(r) {
+  if (!isAdmin()) return;
+  if (!confirm(`确定删除「${r.name}」？所有人都会看不到这条，删除后无法恢复。`)) return;
+  try { await DB.shops.del(r.id); } catch (e) { toast('删除失败：' + e.message); return; }
+  state.shops.delete(r.id); removeMarker(r.id); updateCount();
+  closeSheet(); toast('已删除');
+}
+function openPendingDetail(r) {
+  const me = state.myPos && state.myPos.pos;
+  const d = me ? distance(me, [r.lng, r.lat]) : null;
+  openSheet(`
+    <div class="sheet-head"><h2>${esc(r.name)}</h2><button class="x" data-close aria-label="关闭">${ICON.close}</button></div>
+    <div class="banner warn">待核实：到店 ${VERIFY_RADIUS} 米内，补全信息并上传实拍照片后完成。${d !== null ? `<br>上次定位距此约 ${fmtDist(d)}。` : ''}</div>
+    <dl class="kv">
+      <div><dt>状态</dt><dd><span class="badge pend">待核实</span></dd></div>
+      <div><dt>电话</dt><dd>${r.phone ? `<a href="tel:${esc(r.phone.replace(/[^\d+]/g, ''))}">${esc(r.phone)}</a> <small style="color:var(--ink3)">（高德数据）</small>` : '—'}</dd></div>
+      <div><dt>地址</dt><dd>${esc(r.address || '—')}</dd></div>
+      <div><dt>类型</dt><dd>${esc(String(r.poiType || '—').replace(/;/g, ' / '))}</dd></div>
+      <div><dt>区域</dt><dd>${esc((state.areas.get(r.areaId) || {}).name || '—')}</dd></div>
+      <div><dt>创建</dt><dd>${fmtTime(r.createdAt)}${r.planner ? ' · ' + esc(r.planner) : ''}</dd></div>
+    </dl>
+    <div class="actions">
+      <a class="btn line" href="${navURL(r)}" target="_blank" rel="noopener" style="text-decoration:none">导航</a>
+      <button class="btn pri" id="dVerify">去核实</button>
+      <button class="btn danger admin-only" id="dDel">删除</button>
+    </div>`);
+  $('#dVerify').onclick = () => startVerify(r.id);
+  $('#dDel').onclick = () => deleteShop(r);
+}
+function openDetail(id) {
+  const r = state.shops.get(id); if (!r) return;
+  if (isPending(r)) { openPendingDetail(r); return; }
+  const s = scaleOf(r.scale);
+  const nav = navURL(r);
+  openSheet(`
+    <div class="sheet-head"><h2>${esc(r.name)}</h2><button class="x" data-close aria-label="关闭">${ICON.close}</button></div>
+    ${r.photos.length
+      ? `<div class="gallery" id="dGallery">${r.photos.map(() => `<div class="ph-load" style="height:200px;width:150px;flex:none;border-radius:8px">加载照片…</div>`).join('')}</div>`
+      : `<div class="no-photo">${ICON.cam}暂无实拍照片</div>`}
+    <dl class="kv">
+      <div><dt>规模</dt><dd><span class="badge" style="${scaleStyle(r.scale)}">${s.label}</span> <small style="color:var(--ink3)">${s.desc}</small></dd></div>
+      <div><dt>电话</dt><dd>${r.phone ? `<a href="tel:${esc(r.phone.replace(/[^\d+]/g, ''))}">${esc(r.phone)}</a>` : '—'}</dd></div>
+      <div><dt>地址</dt><dd>${esc(r.address || '—')}</dd></div>
+      <div><dt>坐标</dt><dd>${r.lng.toFixed(6)}, ${r.lat.toFixed(6)}</dd></div>
+      ${r.note ? `<div><dt>备注</dt><dd>${esc(r.note)}</dd></div>` : ''}
+      ${statusOf(r) === 'verified' ? `<div><dt>核实</dt><dd><span class="badge" style="--c:#12A150;--cs:#12A1501F">已核实</span> <small style="color:var(--ink3)">${fmtTime(r.verifiedAt)} · 距店 ${r.verifyDist ?? '?'} 米${r.areaId && state.areas.get(r.areaId) ? ' · ' + esc(state.areas.get(r.areaId).name) : ''}</small></dd></div>` : ''}
+      <div><dt>记录人</dt><dd>${esc(r.recorder || '—')}</dd></div>
+      <div><dt>时间</dt><dd>${fmtTime(r.createdAt)}${r.updatedAt - r.createdAt > 60000 ? `<small style="color:var(--ink3)">（${fmtTime(r.updatedAt)} 修改）</small>` : ''}</dd></div>
+    </dl>
+    <div class="actions">
+      <a class="btn line" href="${nav}" target="_blank" rel="noopener" style="text-decoration:none">导航</a>
+      ${canEdit(r) ? '<button class="btn line" id="dEdit">编辑</button>' : ''}
+      <button class="btn danger admin-only" id="dDel">删除</button>
+    </div>`);
+  // 照片按需从服务器下载（下载过的缓存在本机）
+  if (r.photos.length) getPhotoBlobs(r.photos).then(bs => {
+    const g = $('#dGallery'); if (!g) return;
+    g.innerHTML = bs.length ? bs.map(b => `<img src="${blobURL(b)}" alt="实拍" data-view>`).join('')
+      : `<div class="no-photo" style="width:100%">${ICON.cam}照片暂时加载不了（${navigator.onLine ? '网络不稳' : '离线'}）</div>`;
+  });
+  if ($('#dEdit')) $('#dEdit').onclick = async () => {
+    busy(true);
+    const photos = await getPhotoBlobs(r.photos);
+    busy(false);
+    if (photos.length < r.photos.length && !confirm('有照片没能加载（网络问题），继续编辑会丢掉这些照片。继续吗？')) return;
+    openForm({ ...r, photos });
+  };
+  $('#dDel').onclick = () => deleteShop(r);
+}
+
+/* ==================== 记录列表 ==================== */
+function openList() {
+  openSheet(`
+    <div class="sheet-head"><h2>已标记 ${[...state.shops.values()].filter(r => !isPending(r)).length} 家</h2><button class="x" data-close aria-label="关闭">${ICON.close}</button></div>
+    <input class="input" id="lkw" type="search" placeholder="按店名 / 电话 / 地址 / 记录人筛选" value="${esc(state.listFilter.kw)}">
+    <div class="filters" id="lscale">
+      <button class="fchip${!state.listFilter.scale ? ' on' : ''}" data-s="">全部</button>
+      ${Object.entries(SCALES).map(([k, s]) => `<button class="fchip${state.listFilter.scale === k ? ' on' : ''}" data-s="${k}">${s.label}</button>`).join('')}
+    </div>
+    <div class="legend">${Object.values(SCALES).map(s => `<span><i style="background:${s.color}"></i>${s.label}</span>`).join('')}</div>
+    <div id="lbody"></div>
+    <div class="list-foot">
+      <div class="row admin-only"><button class="btn pri" id="btnExport">下载数据（Excel+照片）</button></div>
+      <p class="tip">所有人的标点实时汇总在服务器上。${isAdmin() ? '下载会包含全部照片，数据多时需要等一会儿。' : '没网时先存在手机里，有网自动上传。'}</p>
+    </div>`);
+  renderList();
+  $('#lkw').addEventListener('input', e => { state.listFilter.kw = e.target.value.trim(); renderList(); });
+  $('#lscale').addEventListener('click', e => {
+    const b = e.target.closest('[data-s]'); if (!b) return;
+    state.listFilter.scale = b.dataset.s;
+    document.querySelectorAll('#lscale .fchip').forEach(x => x.classList.toggle('on', x === b));
+    renderList();
+  });
+  $('#btnExport').onclick = exportZip;
+}
+function filteredShops() {
+  const { kw, scale } = state.listFilter;
+  return [...state.shops.values()]
+    .filter(r => !isPending(r))
+    .filter(r => !scale || r.scale === scale)
+    .filter(r => !kw || [r.name, r.phone, r.address, r.recorder].some(v => (v || '').includes(kw)))
+    .sort((a, b) => b.createdAt - a.createdAt);
+}
+function renderList() {
+  const list = filteredShops();
+  $('#lbody').innerHTML = list.length ? list.map(r => `
+    <div class="li" data-id="${esc(r.id)}">
+      ${r.thumb ? `<img src="${r.thumb}" alt="">` : `<span class="noimg">${ICON.cam}</span>`}
+      <div class="li-main">
+        <div class="li-top"><b>${esc(r.name)}</b><span class="badge" style="${scaleStyle(r.scale)}">${scaleOf(r.scale).label}</span>${statusOf(r) === 'verified' ? '<span class="badge" style="--c:#12A150;--cs:#12A1501F">已核实</span>' : ''}</div>
+        <small>${esc(r.phone || '无电话')} · ${esc(r.recorder || '')} · ${fmtTime(r.verifiedAt || r.createdAt)}</small>
+        <small>${esc(r.address || '')}</small>
+      </div>
+    </div>`).join('')
+    : `<div class="empty">${state.shops.size - +$('#pcount').textContent ? '没有符合条件的记录' : '还没有标记，点底部「标点」开始扫街吧'}</div>`;
+}
+
+/* ==================== 导出：ZIP = Excel + 照片 + data.json ==================== */
+async function exportZip() {
+  if (!isAdmin()) return;
+  if (!state.shops.size && !state.areas.size) { toast('还没有记录可以下载'); return; }
+  if (/MicroMessenger/i.test(navigator.userAgent)) { alert('微信内置浏览器不支持下载文件，请点右上角「…」→ 在浏览器打开，再下载。'); return; }
+  busy(true);
+  try {
+    const [JSZip, XLSX] = await Promise.all([needLib('JSZip'), needLib('XLSX')]);
+    const areaName = id => (state.areas.get(id) || {}).name || '';
+    // 排序：已有数据在前、待核实在后，各自按时间
+    const list = [...state.shops.values()].sort((a, b) => (isPending(a) - isPending(b)) || (a.createdAt - b.createdAt));
+    const zip = new JSZip();
+    const dir = zip.folder('照片');
+    const rows = [], meta = [];
+    // 先把所有照片取到本机（已缓存的不重复下载）
+    const blobs = new Map();
+    const allPaths = list.flatMap(r => r.photos);
+    let got = 0, miss = 0;
+    for (const path of allPaths) {
+      try { blobs.set(path, await getPhotoBlob(path)); } catch { miss++; }
+      $('#busy div').textContent = `下载照片 ${++got}/${allPaths.length}…`;
+    }
+    $('#busy div').textContent = '打包中…';
+    list.forEach((r, i) => {
+      const no = i + 1;
+      const files = r.photos.filter(p => blobs.has(p)).map(p => blobs.get(p)).map((b, j) => {
+        const fn = `${pad(no, 3)}_${safeName(r.name)}_${j + 1}.jpg`;
+        dir.file(fn, b);
+        return '照片/' + fn;
+      });
+      rows.push({
+        '序号': no, '状态': STATUS[statusOf(r)], '店家名称': r.name, '联系电话': r.phone || '',
+        '店家规模': isPending(r) ? '' : scaleOf(r.scale).label,
+        '地址': r.address || '', '经度(GCJ-02)': r.lng, '纬度(GCJ-02)': r.lat,
+        '所属区域': areaName(r.areaId), '高德类型': String(r.poiType || '').replace(/;/g, '/'),
+        '记录人': r.recorder || '', '记录时间': isPending(r) ? '' : fmtTime(r.verifiedAt || r.createdAt),
+        '核实距离(米)': r.verifyDist ?? '', '备注': r.note || '', '照片数': files.length,
+        '照片1': files[0] || '', '照片2': files[1] || '', '照片3': files[2] || '', '记录ID': r.id,
+      });
+      const { photos, thumb, owner, serverAt, ...rest } = r;
+      meta.push({ ...rest, photos: files });
+    });
+    const wb = XLSX.utils.book_new();
+    if (rows.length) {
+      const ws = XLSX.utils.json_to_sheet(rows);
+      ws['!cols'] = [6, 9, 24, 14, 8, 36, 12, 12, 12, 20, 10, 17, 11, 24, 7, 28, 28, 28, 14].map(w => ({ wch: w }));
+      // 照片列加超链接：解压后在 Excel 里点一下就能打开图片
+      const head = Object.keys(rows[0]);
+      ['照片1', '照片2', '照片3'].forEach(h => {
+        const c = head.indexOf(h);
+        rows.forEach((row, i) => {
+          const ref = XLSX.utils.encode_cell({ r: i + 1, c });
+          if (row[h] && ws[ref]) ws[ref].l = { Target: row[h] };
+        });
+      });
+      XLSX.utils.book_append_sheet(wb, ws, '地推记录');
+    }
+    if (state.areas.size) {
+      const arows = [...state.areas.values()].map(a => {
+        const s = areaStats(a.id);
+        return {
+          '区域名称': a.name, '面积(平方公里)': +polygonArea(a.path).toFixed(3),
+          '待核实': s.pending, '已核实': s.verified, '完成率': s.total ? Math.round(s.verified / s.total * 100) + '%' : '—',
+          '创建时间': fmtTime(a.createdAt), '边界坐标(GCJ-02)': a.path.map(p => p.join(',')).join(' ; '),
+        };
+      });
+      const ws2 = XLSX.utils.json_to_sheet(arows);
+      ws2['!cols'] = [16, 14, 8, 8, 8, 17, 60].map(w => ({ wch: w }));
+      XLSX.utils.book_append_sheet(wb, ws2, '调查区域');
+    }
+    const name = `地推记录_${stamp()}`;
+    zip.file(`${name}.xlsx`, XLSX.write(wb, { type: 'array', bookType: 'xlsx' }));
+    zip.file('data.json', JSON.stringify({
+      app: 'ditui-pin', version: 2, exportedAt: Date.now(),
+      areas: [...state.areas.values()], records: meta,
+    }, null, 1));
+    const blob = await zip.generateAsync({ type: 'blob' });
+    download(blob, `${name}.zip`);
+    toast(`已导出 ${list.length} 条记录、${state.areas.size} 个区域${miss ? `；${miss} 张照片下载失败，请检查网络后重试` : ''}`, miss ? 6000 : 2400);
+  } catch (e) {
+    toast('导出失败：' + e.message, 5000);
+  } finally { busy(false); $('#busy div').textContent = '处理中…'; }
+}
+
+/* ==================== 设置 ==================== */
+function openSettings() {
+  const me = state.me || {};
+  const st = Sync.st;
+  openSheet(`
+    <div class="sheet-head"><h2>账号与同步</h2><button class="x" data-close aria-label="关闭">${ICON.close}</button></div>
+    <div class="acct"><span class="av">${esc((me.name || '?').slice(-2))}</span>
+      <div><b>${esc(me.name || '')} · ${me.role === 'admin' ? '管理员' : '地推员'}</b><small>${esc(me.email || '')}</small></div></div>
+    <dl class="kv">
+      <div><dt>网络</dt><dd>${st.online ? '在线' : '离线'}${st.online ? (st.realtime ? ' · 实时推送已连接' : ' · 实时推送未连接（每分钟自动刷新）') : ''}</dd></div>
+      <div><dt>待上传</dt><dd>${st.pending} 条${st.error ? ` <small style="color:#E5484D">${esc(st.error)}</small>` : ''}</dd></div>
+      <div><dt>上次同步</dt><dd>${st.lastOk ? fmtTime(st.lastOk) : '—'}</dd></div>
+    </dl>
+    <div class="form-actions">
+      <button class="btn line" id="setLogout">退出登录</button>
+      <button class="btn pri" id="setSync">立即同步</button>
+    </div>
+    <p class="tip">${me.role === 'admin' ? '账号在 Supabase 后台 Authentication 里添加；设为管理员：profiles 表把 role 改成 admin。' : '忘记密码请联系管理员重置。'}</p>`);
+  $('#setSync').onclick = () => { Sync.kick(); closeSheet(); toast('正在同步…'); };
+  $('#setLogout').onclick = logout;
+}
+async function logout() {
+  await Sync.refreshCount();
+  if (Sync.st.pending && !confirm(`还有 ${Sync.st.pending} 条没上传到服务器，退出会丢失这些数据！\n确定退出？`)) return;
+  if (!Sync.st.pending && !confirm('退出登录？本机缓存的数据会一并清除。')) return;
+  busy(true);
+  try { await sb.auth.signOut({ scope: 'local' }); } catch {}
+  try { await LDB.clearAll(); } catch {}
+  location.reload();
+}
+
+/* ==================== 事件绑定 & 启动 ==================== */
+function bindUI() {
+  const q = $('#q');
+  q.addEventListener('input', () => {
+    $('#qClear').hidden = !q.value;
+    clearTimeout(qTimer); qTimer = setTimeout(doSearch, 450);
+  });
+  q.addEventListener('keydown', e => { if (e.key === 'Enter') { clearTimeout(qTimer); doSearch(); q.blur(); } });
+  q.addEventListener('focus', () => { if (q.value.trim() && $('#results').innerHTML) $('#results').hidden = false; });
+  $('#qClear').onclick = () => {
+    q.value = ''; $('#qClear').hidden = true; hideResults();
+    if (state.searchMarker) { state.map.remove(state.searchMarker); state.searchMarker = null; }
+  };
+  $('#results').addEventListener('click', onResultClick);
+  $('#map').addEventListener('pointerdown', () => { if (!$('#results').hidden) { hideResults(); q.blur(); } });
+
+  $('#btnPin').onclick = () => startPick(null);
+  $('#pickCancel').onclick = () => {
+    const d = state.draft; endPick();
+    if (d && (d.name || d.photos)) openForm(d); else state.draft = null;   // 从表单进来的「重新选点」取消后回到表单
+  };
+  $('#pickOk').onclick = confirmPick;
+  $('#btnList').onclick = openList;
+  $('#btnSettings').onclick = openSettings;
+  $('#btnLocate').onclick = async () => {
+    toast('定位中…', 10000);
+    try { const me = await locateMe(); toast('已定位，精度约 ' + Math.round(me.accuracy) + ' 米'); }
+    catch (e) { toast(e.message, 4500); }
+  };
+  $('#btnAreas').onclick = openAreas;
+  $('#btnTasks').onclick = openTasks;
+  $('#drawUndo').onclick = undoVertex;
+  $('#drawOk').onclick = finishDraw;
+  $('#drawCancel').onclick = () => {
+    if (state.drawing.path.length && !confirm('放弃这次圈选？')) return;
+    endDraw();
+  };
+
+  $('#backdrop').onclick = tryClose;
+  $('#sheetBody').addEventListener('click', e => {
+    if (e.target.closest('[data-close]')) { tryClose(); return; }
+    const del = e.target.closest('[data-del]');
+    if (del) { state.draft.photos.splice(+del.dataset.del, 1); renderPhotoGrid(); return; }
+    if (e.target.closest('#phAdd')) { $('#photoInput').click(); return; }
+    const img = e.target.closest('[data-view]');
+    if (img) { viewPhoto(img.src); return; }
+    const li = e.target.closest('.li[data-id]');
+    if (li) { const r = state.shops.get(li.dataset.id); if (r) { focusShop(r); openDetail(r.id); } }
+  });
+  $('#photoInput').addEventListener('change', e => { const fs = e.target.files; if (fs.length) onPhotosPicked(fs); e.target.value = ''; });
+  $('#viewer').onclick = () => { $('#viewer').hidden = true; };
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    if (!$('#viewer').hidden) $('#viewer').hidden = true;
+    else if (document.body.classList.contains('sheet-open')) tryClose();
+    else if (state.picking) $('#pickCancel').click();
+    else if (state.drawing) $('#drawCancel').click();
+  });
+}
+
+const AUTH_KEY = 'dt-online-auth';
+// 登录成功（或离线用缓存身份）后进入地图
+async function enter(user) {
+  try { state.me = await loadProfile(user); } catch (e) { showLogin(e.message); return; }
+  // 换了账号：清掉上一个账号留在本机的缓存
+  const last = await LDB.get('meta', 'uid').catch(() => null);
+  if (last && last !== user.id) await LDB.clearAll().catch(() => {});
+  await LDB.put('meta', user.id, 'uid').catch(() => {});
+  document.body.classList.toggle('is-admin', isAdmin());
+  $('#login').hidden = true;
+  try {
+    (await LDB.all('shops')).forEach(r => state.shops.set(r.id, r));
+    (await LDB.all('areas')).forEach(a => state.areas.set(a.id, a));
+  } catch (e) {
+    toast('本机数据库打开失败：' + (e && e.message || e) + '（无痕模式可能无法离线保存）', 5000);
+  }
+  updateCount();
+  renderSyncChip();
+  await initMap();
+  Sync.start();
+}
+function bindLogin() {
+  $('#loginForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const email = String(fd.get('email') || '').trim(), password = String(fd.get('password') || '');
+    if (!email || !password) { showLogin('请填写邮箱和密码'); return; }
+    if (!sb) { showLogin('组件没加载成功，请刷新页面'); return; }
+    const btn = $('#loginBtn'); btn.disabled = true; btn.textContent = '登录中…';
+    const { data, error } = await sb.auth.signInWithPassword({ email, password });
+    btn.disabled = false; btn.textContent = '登录';
+    if (error) {
+      showLogin(/Invalid login/i.test(error.message) ? '邮箱或密码不对'
+        : '登录失败：' + (navigator.onLine ? error.message : '当前没有网络'));
+      return;
+    }
+    e.target.password.value = '';
+    if (state.me) {
+      // 登录过期后重新登录：同一账号直接继续上传；换了账号就清掉重来
+      if (data.user.id === state.me.id) { $('#login').hidden = true; Sync.st.error = ''; Sync.kick(); return; }
+      await Sync.refreshCount();
+      if (Sync.st.pending && !confirm(`上一个账号还有 ${Sync.st.pending} 条没上传，换账号会丢失。确定？`)) { await sb.auth.signOut({ scope: 'local' }); return; }
+      await LDB.clearAll().catch(() => {});
+      location.reload(); return;
+    }
+    await enter(data.user);
+  });
+}
+
+(async function boot() {
+  try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch {}
+  bindUI();
+  bindLogin();
+  try { await needLib('supabase'); } catch (e) {
+    showLogin('组件加载失败，请检查网络后刷新页面'); return;
+  }
+  sb = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_KEY, {
+    auth: { persistSession: true, autoRefreshToken: true, storageKey: AUTH_KEY },
+  });
+  let session = null, err = null;
+  try { const r = await sb.auth.getSession(); session = r.data.session; err = r.error; } catch (e) { err = e; }
+  if (session) { await enter(session.user); return; }
+  // 离线 / 网络差导致令牌没法续期：本机有登录记录就先用缓存身份进入，联网后自动续期
+  const saved = store.get(AUTH_KEY);
+  const cached = await LDB.get('meta', 'me').catch(() => null);
+  if (saved && cached && (err || !navigator.onLine)) {
+    toast('网络不通，先用离线模式；联网后自动上传', 4000);
+    await enter({ id: cached.id, email: cached.email });
+    return;
+  }
+  showLogin();
+})();
+</script>
+</body>
+</html>

@@ -791,6 +791,9 @@ function renderSyncChip() {
 /* ==================== 登录与角色 ==================== */
 const isAdmin = () => !!(state.me && state.me.role === 'admin');
 const canEdit = r => isAdmin() || (!!state.me && r.owner === state.me.id);
+// 浏览器网络层失败（请求根本没到服务器）：Chrome「Failed to fetch」、Safari「Load failed」、Firefox「NetworkError…」
+const isFetchFail = m => /Failed to fetch|Load failed|NetworkError|network error|fetch failed/i.test(m || '');
+const NET_FAIL_MSG = '连不上服务器，请切换 Wi-Fi/流量后重试';
 function showLogin(msg) {
   $('#login').hidden = false;
   const e = $('#loginErr'); e.hidden = !msg; e.textContent = msg || '';
@@ -806,7 +809,7 @@ async function loadProfile(user) {
     return me;
   } catch (e) {
     if (cached && cached.id === user.id) return cached;
-    throw new Error('读取账号资料失败：' + (e.message || e));
+    throw new Error(isFetchFail(e.message) ? NET_FAIL_MSG : '读取账号资料失败：' + (e.message || e));
   }
 }
 
@@ -1911,7 +1914,9 @@ function bindLogin() {
     btn.disabled = false; btn.textContent = '登录';
     if (error) {
       showLogin(/Invalid login/i.test(error.message) ? '邮箱或密码不对'
-        : '登录失败：' + (navigator.onLine ? error.message : '当前没有网络'));
+        : !navigator.onLine ? '登录失败：当前没有网络'
+        : isFetchFail(error.message) ? NET_FAIL_MSG
+        : '登录失败：' + error.message);
       return;
     }
     e.target.password.value = '';
